@@ -5,10 +5,11 @@ import type { Node, Edge } from '@xyflow/svelte';
 const elk = new ELK();
 
 const FIELD_HEIGHT = 28;
-const HEADER_HEIGHT = 40;
+const HEADER_HEIGHT = 34;
 const NODE_WIDTH = 280;
-const SYMBOL_HEIGHT = 24;
-const PADDING_BOTTOM = 12;
+const SYMBOL_HEIGHT = 21;
+const RECORD_PADDING = 8;
+const ENUM_PADDING = 12;
 
 export interface LayoutResult {
 	nodes: Node[];
@@ -98,22 +99,22 @@ export async function layoutGraph(
 
 function computeNodeHeight(schema: SchemaEntity, isCollapsed: boolean): number {
 	if (isCollapsed) {
-		return HEADER_HEIGHT + PADDING_BOTTOM;
+		return HEADER_HEIGHT + 2;
 	}
 
 	if (schema.type === 'record' && schema.fields) {
-		return HEADER_HEIGHT + schema.fields.length * FIELD_HEIGHT + PADDING_BOTTOM;
+		return HEADER_HEIGHT + schema.fields.length * FIELD_HEIGHT + RECORD_PADDING;
 	}
 
 	if (schema.type === 'enum' && schema.symbols) {
-		return HEADER_HEIGHT + Math.min(schema.symbols.length, 8) * SYMBOL_HEIGHT + PADDING_BOTTOM;
+		return HEADER_HEIGHT + Math.min(schema.symbols.length, 8) * SYMBOL_HEIGHT + ENUM_PADDING;
 	}
 
 	if (schema.type === 'fixed') {
-		return HEADER_HEIGHT + SYMBOL_HEIGHT + PADDING_BOTTOM;
+		return HEADER_HEIGHT + SYMBOL_HEIGHT + ENUM_PADDING;
 	}
 
-	return HEADER_HEIGHT + PADDING_BOTTOM;
+	return HEADER_HEIGHT + 2;
 }
 
 function buildPorts(schema: SchemaEntity, isCollapsed: boolean) {

@@ -39,12 +39,10 @@
 		<div class="fields">
 			{#each fields as field, i}
 				<div class="field-row" class:reference={field.type.isReference} class:nullable={field.type.isNullable}>
-					<Handle type="target" position={Position.Left} id="{id}.{field.name}-target"
-						style="top: {52 + i * 28}px;" />
+					<Handle type="target" position={Position.Left} id="{id}.{field.name}-target" />
 					<span class="field-name">{field.name}</span>
 					<span class="field-type">{field.type.display}</span>
-					<Handle type="source" position={Position.Right} id="{id}.{field.name}-source"
-						style="top: {52 + i * 28}px;" />
+					<Handle type="source" position={Position.Right} id="{id}.{field.name}-source" />
 				</div>
 			{/each}
 		</div>
