@@ -225,7 +225,7 @@ export const examples: Example[] = [
 		)
 	},
 	{
-		name: 'Avro IDL Example',
+		name: 'Avro IDL: Simple',
 		description: 'Protocol definition using Avro IDL syntax',
 		content: `protocol UserService {
 
@@ -257,6 +257,259 @@ export const examples: Example[] = [
     string action;
     long timestamp;
     map<string> properties;
+  }
+
+}`
+	},
+	{
+		name: 'Avro IDL: Healthcare',
+		description: 'Patient records, encounters, and clinical observations',
+		content: `protocol ClinicalDataPlatform {
+
+  enum Gender {
+    MALE, FEMALE, OTHER, UNKNOWN
+  }
+
+  enum EncounterStatus {
+    PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  }
+
+  enum ObservationCategory {
+    VITAL_SIGNS, LABORATORY, IMAGING, PROCEDURE, SURVEY
+  }
+
+  record Identifier {
+    string system;
+    string value;
+  }
+
+  record ContactInfo {
+    union { null, string } phone = null;
+    union { null, string } email = null;
+    string address_line;
+    string city;
+    string state;
+    string postal_code;
+    string country;
+  }
+
+  record Practitioner {
+    long id;
+    Identifier npi;
+    string given_name;
+    string family_name;
+    string specialty;
+    union { null, ContactInfo } contact = null;
+    boolean active;
+  }
+
+  record Patient {
+    long id;
+    Identifier mrn;
+    string given_name;
+    string family_name;
+    union { null, string } date_of_birth = null;
+    Gender gender;
+    ContactInfo contact;
+    Practitioner primary_care_provider;
+    array<string> allergies;
+    boolean active;
+  }
+
+  record Facility {
+    long id;
+    string name;
+    string facility_type;
+    ContactInfo address;
+  }
+
+  record Encounter {
+    long id;
+    Patient patient;
+    Practitioner attending;
+    Facility facility;
+    EncounterStatus status;
+    string encounter_type;
+    long admitted_at;
+    union { null, long } discharged_at = null;
+    union { null, string } chief_complaint = null;
+    array<string> diagnosis_codes;
+  }
+
+  record Observation {
+    long id;
+    Encounter encounter;
+    ObservationCategory category;
+    string code;
+    string display_name;
+    union { null, string } value_string = null;
+    union { null, double } value_numeric = null;
+    union { null, string } unit = null;
+    union { null, string } interpretation = null;
+    long effective_at;
+    Practitioner recorded_by;
+  }
+
+  record MedicationOrder {
+    long id;
+    Encounter encounter;
+    Patient patient;
+    Practitioner prescriber;
+    string medication_code;
+    string medication_name;
+    string dosage;
+    string route;
+    string frequency;
+    long prescribed_at;
+    union { null, long } discontinued_at = null;
+  }
+
+}`
+	},
+	{
+		name: 'Avro IDL: FinTech Platform',
+		description: 'Multi-domain financial services with accounts, transactions, KYC, and risk',
+		content: `protocol FinancialServicesPlatform {
+
+  // ─── Identity & KYC ───
+
+  enum KycStatus {
+    NOT_STARTED, PENDING_REVIEW, APPROVED, REJECTED, EXPIRED
+  }
+
+  enum RiskTier {
+    LOW, MEDIUM, HIGH, CRITICAL
+  }
+
+  enum AccountType {
+    CHECKING, SAVINGS, BROKERAGE, CREDIT, LOAN
+  }
+
+  enum AccountStatus {
+    PENDING_ACTIVATION, ACTIVE, FROZEN, CLOSED
+  }
+
+  enum TransactionStatus {
+    PENDING, PROCESSING, COMPLETED, FAILED, REVERSED
+  }
+
+  enum TransactionType {
+    DEPOSIT, WITHDRAWAL, TRANSFER, PAYMENT,
+    FEE, INTEREST, ADJUSTMENT, REFUND
+  }
+
+  enum Currency {
+    USD, EUR, GBP, JPY, CAD, AUD, CHF
+  }
+
+  record Address {
+    string line1;
+    union { null, string } line2 = null;
+    string city;
+    string region;
+    string postal_code;
+    string country_code;
+  }
+
+  record KycDocument {
+    string document_type;
+    string document_number;
+    string issuing_country;
+    long issued_at;
+    union { null, long } expires_at = null;
+    boolean verified;
+  }
+
+  // ─── Core Entities ───
+
+  record Customer {
+    long id;
+    string external_id;
+    string given_name;
+    string family_name;
+    string email;
+    union { null, string } phone = null;
+    Address legal_address;
+    union { null, Address } mailing_address = null;
+    string tax_id_hash;
+    KycStatus kyc_status;
+    array<KycDocument> kyc_documents;
+    RiskTier risk_tier;
+    long onboarded_at;
+    map<string> metadata;
+  }
+
+  record Account {
+    long id;
+    string account_number;
+    Customer owner;
+    AccountType account_type;
+    AccountStatus status;
+    Currency currency;
+    long balance_minor_units;
+    long available_balance_minor_units;
+    union { null, long } credit_limit_minor_units = null;
+    union { null, double } interest_rate_bps = null;
+    long opened_at;
+    union { null, long } closed_at = null;
+  }
+
+  // ─── Transactions ───
+
+  record MonetaryAmount {
+    long minor_units;
+    Currency currency;
+  }
+
+  record Counterparty {
+    union { null, Account } internal_account = null;
+    union { null, string } external_institution = null;
+    union { null, string } external_account_ref = null;
+    string display_name;
+  }
+
+  record Transaction {
+    long id;
+    string idempotency_key;
+    Account source_account;
+    Counterparty counterparty;
+    TransactionType transaction_type;
+    TransactionStatus status;
+    MonetaryAmount amount;
+    union { null, MonetaryAmount } fee = null;
+    MonetaryAmount running_balance;
+    union { null, string } description = null;
+    string reference_number;
+    long initiated_at;
+    union { null, long } settled_at = null;
+    map<string> metadata;
+  }
+
+  // ─── Compliance & Risk ───
+
+  record RiskAssessment {
+    long id;
+    Customer customer;
+    RiskTier previous_tier;
+    RiskTier assessed_tier;
+    double risk_score;
+    array<string> risk_factors;
+    string assessed_by;
+    long assessed_at;
+    union { null, string } notes = null;
+  }
+
+  record AuditEntry {
+    string entry_id;
+    string entity_type;
+    string entity_id;
+    string action;
+    string actor_id;
+    string actor_type;
+    long timestamp;
+    union { null, string } ip_address = null;
+    map<string> changed_fields;
+    map<string> context;
   }
 
 }`
