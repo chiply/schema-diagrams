@@ -22,7 +22,7 @@
 </script>
 
 <div class="enum-node">
-	<Handle type="target" position={Position.Left} id="{id}-target" style="opacity: 0; pointer-events: all;" />
+	<Handle type="target" position={Position.Left} id="{id}-target" style="background: #8b5cf6; width: 10px; height: 10px; border: 2px solid #1e293b;" />
 
 	<div class="header" role="button" tabindex="0"
 		onclick={() => data.onToggleCollapse?.(id)}
