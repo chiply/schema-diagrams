@@ -33,13 +33,13 @@
 
 <style>
 	.union-node {
-		background: #1e293b;
-		border: 1px solid #334155;
+		background: var(--bg-surface, #1e293b);
+		border: 1px solid var(--border, #334155);
 		border-radius: 6px;
 		min-width: 160px;
 		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 		font-size: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.3));
 	}
 
 	.header {
@@ -78,6 +78,6 @@
 	}
 
 	.variant:hover {
-		background: #263245;
+		background: var(--bg-hover, #263245);
 	}
 </style>

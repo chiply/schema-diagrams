@@ -22,6 +22,7 @@
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
 	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
+	import { getTheme, toggleTheme } from '$lib/theme.svelte.ts';
 
 	const nodeTypes: NodeTypes = {
 		schemaEntity: SchemaEntityNode as any,
@@ -122,6 +123,8 @@
 		fitViewTrigger++;
 	}
 
+	let theme = $derived(getTheme());
+
 	let splitDragging = $state(false);
 	let splitPercent = $state(40);
 
@@ -145,6 +148,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="app"
+	class:theme-light={theme === 'light'}
 	onmousemove={handleSplitMouseMove}
 	onmouseup={handleSplitMouseUp}
 	role="application"
@@ -162,6 +166,13 @@
 			</select>
 			<button onclick={expandAll}>Expand All</button>
 			<button onclick={collapseAll}>Collapse All</button>
+			<button class="theme-toggle" onclick={toggleTheme} aria-label="Toggle theme">
+				{#if theme === 'dark'}
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+				{:else}
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+				{/if}
+			</button>
 		</div>
 	</header>
 
@@ -193,7 +204,7 @@
 					{nodeTypes}
 					{edgeTypes}
 					fitView
-					colorMode="dark"
+					colorMode={theme}
 					minZoom={0.1}
 					maxZoom={2}
 					defaultEdgeOptions={{ type: 'relationship' }}
@@ -202,8 +213,8 @@
 					<FitViewHelper trigger={fitViewTrigger} />
 				<Controls />
 					<MiniMap
-						nodeColor="#334155"
-						maskColor="rgba(0, 0, 0, 0.5)"
+						nodeColor={theme === 'dark' ? '#334155' : '#cbd5e1'}
+						maskColor={theme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.6)'}
 					/>
 					<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
 				</SvelteFlow>
@@ -220,17 +231,43 @@
 	:global(body) {
 		margin: 0;
 		padding: 0;
-		background: #0f172a;
-		color: #e2e8f0;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		overflow: hidden;
 	}
 
 	.app {
+		--bg-app: #0f172a;
+		--bg-surface: #1e293b;
+		--bg-elevated: #334155;
+		--bg-hover: #263245;
+		--border: #334155;
+		--border-accent: #475569;
+		--text-primary: #e2e8f0;
+		--text-secondary: #94a3b8;
+		--text-muted: #64748b;
+		--shadow: rgba(0, 0, 0, 0.3);
+		--handle-border: #1e293b;
+
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
 		width: 100vw;
+		background: var(--bg-app);
+		color: var(--text-primary);
+	}
+
+	.app.theme-light {
+		--bg-app: #f1f5f9;
+		--bg-surface: #ffffff;
+		--bg-elevated: #e2e8f0;
+		--bg-hover: #f1f5f9;
+		--border: #d1d5db;
+		--border-accent: #cbd5e1;
+		--text-primary: #1e293b;
+		--text-secondary: #64748b;
+		--text-muted: #94a3b8;
+		--shadow: rgba(0, 0, 0, 0.1);
+		--handle-border: #ffffff;
 	}
 
 	.app-header {
@@ -238,8 +275,8 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 8px 16px;
-		background: #1e293b;
-		border-bottom: 1px solid #334155;
+		background: var(--bg-surface);
+		border-bottom: 1px solid var(--border);
 		flex-shrink: 0;
 	}
 
@@ -253,7 +290,7 @@
 		margin: 0;
 		font-size: 16px;
 		font-weight: 600;
-		color: #f1f5f9;
+		color: var(--text-primary);
 	}
 
 	.format-badge {
@@ -273,9 +310,9 @@
 	}
 
 	.toolbar select {
-		background: #334155;
-		color: #e2e8f0;
-		border: 1px solid #475569;
+		background: var(--bg-elevated);
+		color: var(--text-primary);
+		border: 1px solid var(--border-accent);
 		border-radius: 4px;
 		padding: 4px 8px;
 		font-size: 12px;
@@ -283,9 +320,9 @@
 	}
 
 	.toolbar button {
-		background: #334155;
-		color: #e2e8f0;
-		border: 1px solid #475569;
+		background: var(--bg-elevated);
+		color: var(--text-primary);
+		border: 1px solid var(--border-accent);
 		border-radius: 4px;
 		padding: 4px 12px;
 		font-size: 12px;
@@ -294,7 +331,14 @@
 	}
 
 	.toolbar button:hover {
-		background: #475569;
+		background: var(--border-accent);
+	}
+
+	.toolbar .theme-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 4px 8px;
 	}
 
 	.split-container {
@@ -313,13 +357,13 @@
 		align-items: center;
 		justify-content: center;
 		height: 100%;
-		color: #64748b;
+		color: var(--text-muted);
 		font-size: 14px;
 	}
 
 	.split-handle {
 		width: 4px;
-		background: #334155;
+		background: var(--border);
 		cursor: col-resize;
 		flex-shrink: 0;
 		transition: background 0.15s;
@@ -345,10 +389,10 @@
 
 	.status-bar {
 		padding: 4px 16px;
-		background: #1e293b;
-		border-top: 1px solid #334155;
+		background: var(--bg-surface);
+		border-top: 1px solid var(--border);
 		font-size: 11px;
-		color: #94a3b8;
+		color: var(--text-secondary);
 		flex-shrink: 0;
 	}
 </style>

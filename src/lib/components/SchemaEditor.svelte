@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type * as Monaco from 'monaco-editor';
 	import type { SchemaFormat } from '../parser/format-detector.ts';
+	import { getTheme } from '$lib/theme.svelte.ts';
 
 	interface Props {
 		value: string;
@@ -13,7 +14,9 @@
 
 	let container: HTMLDivElement;
 	let editor = $state<Monaco.editor.IStandaloneCodeEditor | null>(null);
+	let monacoRef = $state<typeof Monaco | null>(null);
 	let isUpdatingFromProp = false;
+	let theme = $derived(getTheme());
 
 	onMount(async () => {
 		const monaco = await import('monaco-editor');
@@ -52,12 +55,38 @@
 			}
 		});
 
+		monaco.editor.defineTheme('schema-light', {
+			base: 'vs',
+			inherit: true,
+			rules: [
+				{ token: 'key', foreground: '0451A5' },
+				{ token: 'string.key.json', foreground: '0451A5' },
+				{ token: 'string.value.json', foreground: 'A31515' },
+				{ token: 'string', foreground: 'A31515' },
+				{ token: 'number', foreground: '098658' },
+				{ token: 'keyword', foreground: '0000FF' },
+				{ token: 'comment', foreground: '008000' }
+			],
+			colors: {
+				'editor.background': '#ffffff',
+				'editor.foreground': '#1e293b',
+				'editor.lineHighlightBackground': '#f3f4f6',
+				'editorCursor.foreground': '#1e293b',
+				'editor.selectionBackground': '#c7d2fe',
+				'editorLineNumber.foreground': '#94a3b8',
+				'editorLineNumber.activeForeground': '#64748b'
+			}
+		});
+
+		monacoRef = monaco;
+
 		const language = props.format === 'avro-idl' ? 'plaintext' : 'json';
+		const initialTheme = getTheme() === 'dark' ? 'schema-dark' : 'schema-light';
 
 		editor = monaco.editor.create(container, {
 			value: props.value,
 			language,
-			theme: 'schema-dark',
+			theme: initialTheme,
 			minimap: { enabled: false },
 			fontSize: 13,
 			fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', monospace",
@@ -110,6 +139,12 @@
 				// We can't dynamically switch language without monaco reference,
 				// but the format detection handles this at load time
 			}
+		}
+	});
+
+	$effect(() => {
+		if (monacoRef) {
+			monacoRef.editor.setTheme(theme === 'dark' ? 'schema-dark' : 'schema-light');
 		}
 	});
 </script>

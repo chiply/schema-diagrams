@@ -19,8 +19,8 @@
 </script>
 
 <div class="entity-node">
-	<Handle type="target" position={Position.Left} id="{id}-target" style="background: #3b82f6; width: 10px; height: 10px; border: 2px solid #1e293b;" />
-	<Handle type="source" position={Position.Right} id="{id}-source" style="background: #3b82f6; width: 10px; height: 10px; border: 2px solid #1e293b;" />
+	<Handle type="target" position={Position.Left} id="{id}-target" style="background: #3b82f6; width: 10px; height: 10px; border: 2px solid var(--handle-border, #1e293b);" />
+	<Handle type="source" position={Position.Right} id="{id}-source" style="background: #3b82f6; width: 10px; height: 10px; border: 2px solid var(--handle-border, #1e293b);" />
 
 	<div class="header" role="button" tabindex="0"
 		onclick={() => data.onToggleCollapse?.(id)}
@@ -52,13 +52,13 @@
 
 <style>
 	.entity-node {
-		background: #1e293b;
-		border: 1px solid #334155;
+		background: var(--bg-surface, #1e293b);
+		border: 1px solid var(--border, #334155);
 		border-radius: 6px;
 		min-width: 240px;
 		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 		font-size: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.3));
 	}
 
 	.header {
@@ -117,7 +117,7 @@
 	}
 
 	.field-row:hover {
-		background: #263245;
+		background: var(--bg-hover, #263245);
 	}
 
 	.field-row.reference .field-type {
@@ -126,12 +126,12 @@
 
 	.field-row.nullable .field-name::after {
 		content: '?';
-		color: #94a3b8;
+		color: var(--text-secondary, #94a3b8);
 		margin-left: 1px;
 	}
 
 	.field-name {
-		color: #e2e8f0;
+		color: var(--text-primary, #e2e8f0);
 		flex: 1;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -139,7 +139,7 @@
 	}
 
 	.field-type {
-		color: #94a3b8;
+		color: var(--text-secondary, #94a3b8);
 		font-size: 11px;
 		text-align: right;
 		flex-shrink: 0;

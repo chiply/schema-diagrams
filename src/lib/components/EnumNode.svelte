@@ -22,8 +22,8 @@
 </script>
 
 <div class="enum-node">
-	<Handle type="target" position={Position.Left} id="{id}-target" style="background: #8b5cf6; width: 10px; height: 10px; border: 2px solid #1e293b;" />
-	<Handle type="source" position={Position.Right} id="{id}-source" style="background: #8b5cf6; width: 10px; height: 10px; border: 2px solid #1e293b;" />
+	<Handle type="target" position={Position.Left} id="{id}-target" style="background: #8b5cf6; width: 10px; height: 10px; border: 2px solid var(--handle-border, #1e293b);" />
+	<Handle type="source" position={Position.Right} id="{id}-source" style="background: #8b5cf6; width: 10px; height: 10px; border: 2px solid var(--handle-border, #1e293b);" />
 
 	<div class="header" role="button" tabindex="0"
 		onclick={() => data.onToggleCollapse?.(id)}
@@ -55,13 +55,13 @@
 
 <style>
 	.enum-node {
-		background: #1e293b;
-		border: 1px solid #334155;
+		background: var(--bg-surface, #1e293b);
+		border: 1px solid var(--border, #334155);
 		border-radius: 6px;
 		min-width: 180px;
 		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 		font-size: 12px;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.3));
 	}
 
 	.header {
@@ -110,17 +110,17 @@
 
 	.symbol {
 		padding: 3px 12px;
-		color: #c4b5fd;
+		color: var(--text-secondary, #c4b5fd);
 		font-size: 11px;
 	}
 
 	.symbol:hover {
-		background: #263245;
+		background: var(--bg-hover, #263245);
 	}
 
 	.more {
 		padding: 3px 12px;
-		color: #64748b;
+		color: var(--text-muted, #64748b);
 		font-size: 10px;
 		font-style: italic;
 	}
