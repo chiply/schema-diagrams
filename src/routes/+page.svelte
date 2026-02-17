@@ -17,6 +17,7 @@
 	import EnumNode from '$lib/components/EnumNode.svelte';
 	import UnionNode from '$lib/components/UnionNode.svelte';
 	import RelationshipEdge from '$lib/components/RelationshipEdge.svelte';
+	import FitViewHelper from '$lib/components/FitViewHelper.svelte';
 	import { parseSchema } from '$lib/editor/schema-editor.ts';
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
@@ -33,16 +34,16 @@
 	};
 
 	let code = $state(examples[0].content);
-	let nodes = $state<Node[]>([]);
-	let edges = $state<Edge[]>([]);
+	let nodes = $state.raw<Node[]>([]);
+	let edges = $state.raw<Edge[]>([]);
 	let format = $state<SchemaFormat>('avro-json');
 	let statusMessage = $state('');
 	let collapsedNodes = $state(new Set<string>());
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	let editorLoaded = $state(false);
 	let SchemaEditorComponent = $state<any>(null);
+	let fitViewTrigger = $state(0);
 
-	// Dynamic import of editor to avoid SSR issues
 	onMount(async () => {
 		const mod = await import('$lib/components/SchemaEditor.svelte');
 		SchemaEditorComponent = mod.default;
@@ -75,7 +76,6 @@
 		}
 
 		try {
-			// Inject toggle callback into schema data
 			const result = await layoutGraph(graph, collapsedNodes);
 			nodes = result.nodes.map((n) => ({
 				...n,
@@ -88,6 +88,7 @@
 			statusMessage = `${graph.schemas.length} schemas, ${graph.relationships.length} relationships`;
 		} catch (e) {
 			statusMessage = `Layout error: ${e instanceof Error ? e.message : String(e)}`;
+			console.error('Layout error:', e);
 		}
 	}
 
@@ -102,20 +103,23 @@
 		updateDiagram();
 	}
 
-	function expandAll() {
+	async function expandAll() {
 		collapsedNodes = new Set();
-		updateDiagram();
+		await updateDiagram();
+		fitViewTrigger++;
 	}
 
-	function collapseAll() {
+	async function collapseAll() {
 		collapsedNodes = new Set(nodes.map((n) => n.id));
-		updateDiagram();
+		await updateDiagram();
+		fitViewTrigger++;
 	}
 
-	function loadExample(index: number) {
+	async function loadExample(index: number) {
 		code = examples[index].content;
 		collapsedNodes = new Set();
-		updateDiagram();
+		await updateDiagram();
+		fitViewTrigger++;
 	}
 
 	let splitDragging = $state(false);
@@ -182,25 +186,28 @@
 		></div>
 
 		<div class="diagram-pane" style="width: {100 - splitPercent}%">
-			<SvelteFlow
-				{nodes}
-				{edges}
-				{nodeTypes}
-				{edgeTypes}
-				fitView
-				minZoom={0.1}
-				maxZoom={2}
-				defaultEdgeOptions={{ type: 'relationship' }}
-				proOptions={{ hideAttribution: true }}
-			>
+			<div class="flow-wrapper">
+				<SvelteFlow
+					bind:nodes
+					bind:edges
+					{nodeTypes}
+					{edgeTypes}
+					fitView
+					colorMode="dark"
+					minZoom={0.1}
+					maxZoom={2}
+					defaultEdgeOptions={{ type: 'relationship' }}
+					proOptions={{ hideAttribution: true }}
+				>
+					<FitViewHelper trigger={fitViewTrigger} />
 				<Controls />
-				<MiniMap
-					style="background: #1a202c;"
-					nodeColor="#334155"
-					maskColor="rgba(0, 0, 0, 0.5)"
-				/>
-				<Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#334155" />
-			</SvelteFlow>
+					<MiniMap
+						nodeColor="#334155"
+						maskColor="rgba(0, 0, 0, 0.5)"
+					/>
+					<Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+				</SvelteFlow>
+			</div>
 		</div>
 	</div>
 
@@ -217,35 +224,6 @@
 		color: #e2e8f0;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		overflow: hidden;
-	}
-
-	:global(.svelte-flow) {
-		background: #0f172a !important;
-	}
-
-	:global(.svelte-flow__minimap) {
-		border-radius: 4px;
-		border: 1px solid #334155;
-	}
-
-	:global(.svelte-flow__controls) {
-		background: #1e293b;
-		border: 1px solid #334155;
-		border-radius: 4px;
-	}
-
-	:global(.svelte-flow__controls button) {
-		background: #1e293b;
-		border-bottom: 1px solid #334155;
-		color: #e2e8f0;
-	}
-
-	:global(.svelte-flow__controls button:hover) {
-		background: #334155;
-	}
-
-	:global(.svelte-flow__controls button svg) {
-		fill: #e2e8f0;
 	}
 
 	.app {
@@ -355,6 +333,14 @@
 	.diagram-pane {
 		overflow: hidden;
 		position: relative;
+	}
+
+	.flow-wrapper {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 0;
 	}
 
 	.status-bar {
