@@ -34,11 +34,15 @@ export async function layoutGraph(
 		};
 	});
 
-	const elkEdges = graph.relationships.map((rel) => ({
-		id: rel.id,
-		sources: [rel.sourceField ? `${rel.sourceSchema}.${rel.sourceField}-source` : rel.sourceSchema],
-		targets: [rel.targetField ? `${rel.targetSchema}.${rel.targetField}-target` : `${rel.targetSchema}-target`]
-	}));
+	const elkEdges = graph.relationships.map((rel) => {
+		const sourceCollapsed = collapsedNodes.has(rel.sourceSchema);
+		const targetCollapsed = collapsedNodes.has(rel.targetSchema);
+		return {
+			id: rel.id,
+			sources: [rel.sourceField && !sourceCollapsed ? `${rel.sourceSchema}.${rel.sourceField}-source` : `${rel.sourceSchema}-source`],
+			targets: [rel.targetField && !targetCollapsed ? `${rel.targetSchema}.${rel.targetField}-target` : `${rel.targetSchema}-target`]
+		};
+	});
 
 	const elkGraph = {
 		id: 'root',
@@ -82,17 +86,21 @@ export async function layoutGraph(
 		};
 	});
 
-	const edges: Edge[] = graph.relationships.map((rel) => ({
-		id: rel.id,
-		source: rel.sourceSchema,
-		sourceHandle: rel.sourceField ? `${rel.sourceSchema}.${rel.sourceField}-source` : undefined,
-		target: rel.targetSchema,
-		targetHandle: rel.targetField ? `${rel.targetSchema}.${rel.targetField}-target` : rel.targetSchema + '-target',
-		type: 'relationship',
-		data: {
-			relationship: rel
-		}
-	}));
+	const edges: Edge[] = graph.relationships.map((rel) => {
+		const sourceCollapsed = collapsedNodes.has(rel.sourceSchema);
+		const targetCollapsed = collapsedNodes.has(rel.targetSchema);
+		return {
+			id: rel.id,
+			source: rel.sourceSchema,
+			sourceHandle: rel.sourceField && !sourceCollapsed ? `${rel.sourceSchema}.${rel.sourceField}-source` : `${rel.sourceSchema}-source`,
+			target: rel.targetSchema,
+			targetHandle: rel.targetField && !targetCollapsed ? `${rel.targetSchema}.${rel.targetField}-target` : rel.targetSchema + '-target',
+			type: 'relationship',
+			data: {
+				relationship: rel
+			}
+		};
+	});
 
 	return { nodes, edges };
 }
@@ -120,10 +128,18 @@ function computeNodeHeight(schema: SchemaEntity, isCollapsed: boolean): number {
 function buildPorts(schema: SchemaEntity, isCollapsed: boolean) {
 	const ports: { id: string; properties: Record<string, string>; width: number; height: number }[] = [];
 
-	// Target handle for the node itself
+	// Target handle for the node itself (WEST side)
 	ports.push({
 		id: `${schema.id}-target`,
 		properties: { 'org.eclipse.elk.port.side': 'WEST' },
+		width: 8,
+		height: 8
+	});
+
+	// Source handle for the node itself (EAST side, used when collapsed or no field-level source)
+	ports.push({
+		id: `${schema.id}-source`,
+		properties: { 'org.eclipse.elk.port.side': 'EAST' },
 		width: 8,
 		height: 8
 	});
