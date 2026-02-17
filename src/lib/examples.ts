@@ -46,6 +46,89 @@ export const examples: Example[] = [
 		)
 	},
 	{
+		name: 'Deeply Nested: Company Org',
+		description: 'Four levels of inline record nesting with name reuse and arrays',
+		content: JSON.stringify(
+			{
+				type: 'record',
+				name: 'Company',
+				namespace: 'com.org',
+				doc: 'A company with deeply nested organizational structure',
+				fields: [
+					{ name: 'id', type: 'long', doc: 'Unique identifier' },
+					{ name: 'name', type: 'string' },
+					{ name: 'founded_year', type: 'int' },
+					{
+						name: 'headquarters',
+						type: {
+							type: 'record',
+							name: 'Address',
+							fields: [
+								{ name: 'street', type: 'string' },
+								{ name: 'city', type: 'string' },
+								{ name: 'state', type: 'string' },
+								{ name: 'zip', type: 'string' },
+								{ name: 'country', type: 'string' }
+							]
+						}
+					},
+					{
+						name: 'departments',
+						type: {
+							type: 'array',
+							items: {
+								type: 'record',
+								name: 'Department',
+								fields: [
+									{ name: 'name', type: 'string' },
+									{ name: 'budget', type: 'long', doc: 'Annual budget in cents' },
+									{
+										name: 'lead',
+										type: {
+											type: 'record',
+											name: 'Employee',
+											fields: [
+												{ name: 'id', type: 'long' },
+												{ name: 'name', type: 'string' },
+												{ name: 'title', type: 'string' },
+												{
+													name: 'employment_type',
+													type: {
+														type: 'enum',
+														name: 'EmploymentType',
+														symbols: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN']
+													}
+												},
+												{
+													name: 'contact',
+													type: {
+														type: 'record',
+														name: 'ContactInfo',
+														fields: [
+															{ name: 'email', type: 'string' },
+															{ name: 'phone', type: ['null', 'string'], default: null },
+															{ name: 'slack_handle', type: ['null', 'string'], default: null }
+														]
+													}
+												}
+											]
+										}
+									},
+									{
+										name: 'location',
+										type: 'Address'
+									}
+								]
+							}
+						}
+					}
+				]
+			},
+			null,
+			2
+		)
+	},
+	{
 		name: 'E-commerce',
 		description: 'User, Order, OrderItem, Product, Category with joins',
 		content: JSON.stringify(
