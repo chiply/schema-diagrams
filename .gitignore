@@ -1,9 +1,31 @@
 node_modules
-.svelte-kit
-build
+
+# Output
+.output
 .vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
 .env
 .env.*
 !.env.example
+!.env.test
+
+# Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Test artifacts
+/test-results
+*.png
+
+# Playwright MCP
+.playwright-mcp/
+.mcp.json
