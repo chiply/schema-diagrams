@@ -166,7 +166,7 @@ export const examples: Example[] = [
 						{
 							name: 'category_id',
 							type: 'long',
-							join: { schema: 'com.shop.Category', field: 'id', cardinality: 'N:1' }
+							'x.join': { schema: 'com.shop.Category', field: 'id', cardinality: 'N:1' }
 						},
 						{
 							name: 'status',
@@ -187,7 +187,7 @@ export const examples: Example[] = [
 						{
 							name: 'user_id',
 							type: 'long',
-							join: { schema: 'com.shop.User', field: 'id', cardinality: 'N:1' }
+							'x.join': { schema: 'com.shop.User', field: 'id', cardinality: 'N:1' }
 						},
 						{
 							name: 'status',
@@ -210,12 +210,12 @@ export const examples: Example[] = [
 						{
 							name: 'order_id',
 							type: 'long',
-							join: { schema: 'com.shop.Order', field: 'id', cardinality: 'N:1' }
+							'x.join': { schema: 'com.shop.Order', field: 'id', cardinality: 'N:1' }
 						},
 						{
 							name: 'product_id',
 							type: 'long',
-							join: { schema: 'com.shop.Product', field: 'id', cardinality: 'N:1' }
+							'x.join': { schema: 'com.shop.Product', field: 'id', cardinality: 'N:1' }
 						},
 						{ name: 'quantity', type: 'int' },
 						{ name: 'unit_price_cents', type: 'long' }

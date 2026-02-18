@@ -137,7 +137,7 @@ function processField(
 	const fieldType = resolveType(field.type, name, parentId, schemas, relationships, namedTypes, errors);
 
 	// Check for join annotations
-	const join = field.join as AvroSchema | undefined;
+	const join = field['x.join'] as AvroSchema | undefined;
 	if (join && typeof join === 'object') {
 		const targetSchema = join.schema as string;
 		const targetField = join.field as string | undefined;
@@ -157,7 +157,7 @@ function processField(
 	}
 
 	// Collect annotations (any non-standard field-level keys)
-	const standardKeys = new Set(['name', 'type', 'doc', 'default', 'order', 'aliases', 'join']);
+	const standardKeys = new Set(['name', 'type', 'doc', 'default', 'order', 'aliases', 'x.join']);
 	const annotations: Record<string, unknown> = {};
 	for (const key of Object.keys(field)) {
 		if (!standardKeys.has(key)) {
