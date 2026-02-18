@@ -409,6 +409,154 @@ function escapeRegex(str: string): string {
 	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function generateUniqueSymbolName(existingSymbols: string[]): string {
+	const base = 'NEW_SYMBOL';
+	if (!existingSymbols.includes(base)) return base;
+	let i = 2;
+	while (existingSymbols.includes(`${base}_${i}`)) i++;
+	return `${base}_${i}`;
+}
+
+export function addSymbol(
+	code: string,
+	format: SchemaFormat,
+	schemaName: string,
+	symbolName: string
+): string {
+	if (format === 'avro-json') {
+		return addSymbolToSchema(code, schemaName, symbolName);
+	}
+	if (format === 'avro-idl') {
+		return addSymbolToEnumIdl(code, schemaName, symbolName);
+	}
+	return code;
+}
+
+function addSymbolToSchema(
+	jsonInput: string,
+	schemaName: string,
+	symbolName: string
+): string {
+	try {
+		const parsed = JSON.parse(jsonInput);
+		const schemas = Array.isArray(parsed) ? parsed : [parsed];
+
+		const target = findSchemaByName(schemas, schemaName);
+		if (target && Array.isArray(target.symbols)) {
+			target.symbols.push(symbolName);
+		}
+
+		return JSON.stringify(Array.isArray(parsed) ? schemas : schemas[0], null, 2);
+	} catch {
+		return jsonInput;
+	}
+}
+
+function addSymbolToEnumIdl(
+	code: string,
+	schemaName: string,
+	symbolName: string
+): string {
+	const simpleName = schemaName.includes('.') ? schemaName.split('.').pop()! : schemaName;
+	const enumPattern = new RegExp(`\\benum\\s+${escapeRegex(simpleName)}\\s*\\{`);
+	const match = enumPattern.exec(code);
+	if (!match) return code;
+
+	// Find the matching closing brace using brace counting
+	let braceDepth = 1;
+	let pos = match.index + match[0].length;
+	while (pos < code.length && braceDepth > 0) {
+		if (code[pos] === '{') braceDepth++;
+		else if (code[pos] === '}') braceDepth--;
+		if (braceDepth > 0) pos++;
+	}
+
+	// pos now points to the closing }
+	// Check if there are existing symbols to determine if we need a comma
+	const body = code.substring(match.index + match[0].length, pos);
+	const existingSymbols = body.trim();
+	const needsComma = existingSymbols.length > 0 && !existingSymbols.endsWith(',');
+
+	// Determine indentation from the enum's symbols
+	const beforeClose = code.substring(match.index, pos);
+	const indentMatch = beforeClose.match(/\n(\s+)\S[^\n]*$/);
+	const indent = indentMatch ? indentMatch[1] : '  ';
+
+	const prefix = needsComma ? `,\n` : '';
+	const newSymbol = `${prefix}${indent}${symbolName}\n`;
+	return code.substring(0, pos) + newSymbol + code.substring(pos);
+}
+
+export function renameSymbolInSchema(
+	code: string,
+	format: SchemaFormat,
+	schemaName: string,
+	oldName: string,
+	newName: string
+): string {
+	if (format === 'avro-json') {
+		return renameSymbolInJson(code, schemaName, oldName, newName);
+	}
+	if (format === 'avro-idl') {
+		return renameSymbolInIdl(code, schemaName, oldName, newName);
+	}
+	return code;
+}
+
+function renameSymbolInJson(
+	jsonInput: string,
+	schemaName: string,
+	oldName: string,
+	newName: string
+): string {
+	try {
+		const parsed = JSON.parse(jsonInput);
+		const schemas = Array.isArray(parsed) ? parsed : [parsed];
+
+		const target = findSchemaByName(schemas, schemaName);
+		if (target && Array.isArray(target.symbols)) {
+			const idx = target.symbols.indexOf(oldName);
+			if (idx !== -1) {
+				target.symbols[idx] = newName;
+			}
+		}
+
+		return JSON.stringify(Array.isArray(parsed) ? schemas : schemas[0], null, 2);
+	} catch {
+		return jsonInput;
+	}
+}
+
+function renameSymbolInIdl(
+	code: string,
+	schemaName: string,
+	oldName: string,
+	newName: string
+): string {
+	const simpleName = schemaName.includes('.') ? schemaName.split('.').pop()! : schemaName;
+	const enumPattern = new RegExp(`\\benum\\s+${escapeRegex(simpleName)}\\s*\\{`);
+	const match = enumPattern.exec(code);
+	if (!match) return code;
+
+	// Find the matching closing brace using brace counting
+	let braceDepth = 1;
+	let pos = match.index + match[0].length;
+	while (pos < code.length && braceDepth > 0) {
+		if (code[pos] === '{') braceDepth++;
+		else if (code[pos] === '}') braceDepth--;
+		if (braceDepth > 0) pos++;
+	}
+
+	// Replace the symbol name within the enum body only
+	const bodyStart = match.index + match[0].length;
+	const bodyEnd = pos;
+	const body = code.substring(bodyStart, bodyEnd);
+	const symbolPattern = new RegExp(`\\b${escapeRegex(oldName)}\\b`, 'g');
+	const newBody = body.replace(symbolPattern, newName);
+
+	return code.substring(0, bodyStart) + newBody + code.substring(bodyEnd);
+}
+
 function findSchemaByName(
 	schemas: Record<string, unknown>[],
 	name: string

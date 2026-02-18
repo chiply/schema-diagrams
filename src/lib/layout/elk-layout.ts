@@ -116,7 +116,7 @@ function computeNodeHeight(schema: SchemaEntity, isCollapsed: boolean): number {
 	}
 
 	if (schema.type === 'enum' && schema.symbols) {
-		return HEADER_HEIGHT + Math.min(schema.symbols.length, 8) * SYMBOL_HEIGHT + ENUM_PADDING;
+		return HEADER_HEIGHT + Math.min(schema.symbols.length, 8) * SYMBOL_HEIGHT + ADD_BUTTON_HEIGHT + ENUM_PADDING;
 	}
 
 	if (schema.type === 'fixed') {

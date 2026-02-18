@@ -18,7 +18,7 @@
 	import UnionNode from '$lib/components/UnionNode.svelte';
 	import RelationshipEdge from '$lib/components/RelationshipEdge.svelte';
 	import FitViewHelper from '$lib/components/FitViewHelper.svelte';
-	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema, updateFieldDefaultInSchema, updateFieldTypeInSchema } from '$lib/editor/schema-editor.ts';
+	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema, updateFieldDefaultInSchema, updateFieldTypeInSchema, addSymbol, generateUniqueSymbolName, renameSymbolInSchema } from '$lib/editor/schema-editor.ts';
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
 	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
@@ -48,6 +48,7 @@
 	let fitViewTrigger = $state(0);
 	let helpOpen = $state(false);
 	let editingField = $state<{ schemaId: string; fieldName: string } | null>(null);
+	let editingSymbol = $state<{ schemaId: string; symbolName: string } | null>(null);
 
 	onMount(async () => {
 		const mod = await import('$lib/components/SchemaEditor.svelte');
@@ -95,10 +96,14 @@
 					onRenameField: handleRenameField,
 					onChangeDefault: handleChangeDefault,
 					onChangeType: handleChangeType,
-					editingFieldName: editingField?.schemaId === n.id ? editingField.fieldName : null
+					editingFieldName: editingField?.schemaId === n.id ? editingField.fieldName : null,
+					onAddSymbol: handleAddSymbol,
+					onRenameSymbol: handleRenameSymbol,
+					editingSymbolName: editingSymbol?.schemaId === n.id ? editingSymbol.symbolName : null
 				}
 			}));
 			editingField = null;
+			editingSymbol = null;
 			edges = result.edges;
 			statusMessage = `${graph.schemas.length} schemas, ${graph.relationships.length} relationships`;
 		} catch (e) {
@@ -146,6 +151,22 @@
 
 	function handleChangeType(schemaId: string, fieldName: string, newType: string) {
 		const newCode = updateFieldTypeInSchema(code, format, schemaId, fieldName, newType);
+		applyDiagramEdit(newCode);
+	}
+
+	function handleAddSymbol(schemaId: string) {
+		const existingSymbols = nodes
+			.find(n => n.id === schemaId)
+			?.data?.schema?.symbols ?? [];
+		const symbolName = generateUniqueSymbolName(existingSymbols);
+		const newCode = addSymbol(code, format, schemaId, symbolName);
+		editingSymbol = { schemaId, symbolName };
+		applyDiagramEdit(newCode);
+	}
+
+	function handleRenameSymbol(schemaId: string, oldName: string, newName: string) {
+		if (!newName || newName === oldName) return;
+		const newCode = renameSymbolInSchema(code, format, schemaId, oldName, newName);
 		applyDiagramEdit(newCode);
 	}
 

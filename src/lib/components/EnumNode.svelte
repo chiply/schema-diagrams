@@ -7,6 +7,9 @@
 			schema: SchemaEntity;
 			isCollapsed: boolean;
 			onToggleCollapse?: (id: string) => void;
+			onAddSymbol?: (id: string) => void;
+			onRenameSymbol?: (schemaId: string, oldName: string, newName: string) => void;
+			editingSymbolName?: string | null;
 		};
 		id: string;
 	}
@@ -19,6 +22,38 @@
 	let symbols = $derived(schema.symbols ?? []);
 	let displaySymbols = $derived(isCollapsed ? [] : symbols.slice(0, 8));
 	let hasMore = $derived(symbols.length > 8);
+
+	// Symbol editing state
+	let editingSymbol = $state<string | null>(null);
+	let editValue = $state('');
+	let cancelling = false;
+
+	$effect(() => {
+		if (data.editingSymbolName) {
+			editingSymbol = data.editingSymbolName;
+			editValue = data.editingSymbolName;
+		}
+	});
+
+	function startEdit(symbol: string) {
+		editingSymbol = symbol;
+		editValue = symbol;
+	}
+
+	function commitEdit(oldName: string) {
+		if (cancelling) return;
+		const trimmed = editValue.trim();
+		if (trimmed && trimmed !== oldName) {
+			data.onRenameSymbol?.(id, oldName, trimmed);
+		}
+		editingSymbol = null;
+	}
+
+	function cancelEdit() {
+		cancelling = true;
+		editingSymbol = null;
+		requestAnimationFrame(() => { cancelling = false; });
+	}
 </script>
 
 <div class="enum-node">
@@ -41,11 +76,36 @@
 		<div class="body">
 			{#if isEnum}
 				{#each displaySymbols as symbol}
-					<div class="symbol">{symbol}</div>
+					<div class="symbol">
+						{#if editingSymbol === symbol}
+							<!-- svelte-ignore a11y_autofocus -->
+							<input
+								class="symbol-input nopan nowheel nodrag"
+								type="text"
+								bind:value={editValue}
+								autofocus
+								onkeydown={(e) => {
+									if (e.key === 'Enter') { e.preventDefault(); commitEdit(symbol); }
+									else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+								}}
+								onblur={() => commitEdit(symbol)}
+								onfocus={(e) => (e.target as HTMLInputElement).select()}
+							/>
+						{:else}
+							<span
+								class="symbol-name editable"
+								role="button"
+								tabindex="0"
+								onclick={(e) => { e.stopPropagation(); startEdit(symbol); }}
+								onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startEdit(symbol); } }}
+							>{symbol}</span>
+						{/if}
+					</div>
 				{/each}
 				{#if hasMore}
 					<div class="more">+{symbols.length - 8} more</div>
 				{/if}
+				<button class="add-symbol-btn" onclick={() => data.onAddSymbol?.(id)}>+ Add Symbol</button>
 			{:else}
 				<div class="symbol">size: {schema.size}</div>
 			{/if}
@@ -118,10 +178,57 @@
 		background: var(--bg-hover, #263245);
 	}
 
+	.symbol-name.editable {
+		cursor: text;
+		border-radius: 2px;
+		padding: 0 2px;
+		margin: 0 -2px;
+	}
+
+	.symbol-name.editable:hover {
+		background: var(--bg-elevated, #334155);
+	}
+
+	.symbol-input {
+		width: 100%;
+		font-family: inherit;
+		font-size: inherit;
+		color: var(--text-primary, #e2e8f0);
+		background: var(--bg-elevated, #334155);
+		border: 1px solid #8b5cf6;
+		border-radius: 2px;
+		padding: 0 2px;
+		margin: 0 -3px;
+		outline: none;
+		min-width: 0;
+		box-sizing: border-box;
+	}
+
 	.more {
 		padding: 3px 12px;
 		color: var(--text-muted, #64748b);
 		font-size: 10px;
 		font-style: italic;
+	}
+
+	.add-symbol-btn {
+		display: block;
+		width: calc(100% - 16px);
+		margin: 2px 8px 6px;
+		padding: 4px 0;
+		background: none;
+		border: 1px dashed var(--border-accent, #475569);
+		border-radius: 4px;
+		color: var(--text-muted, #64748b);
+		font-family: inherit;
+		font-size: 11px;
+		cursor: pointer;
+		transition: color 0.15s, border-color 0.15s, background 0.15s;
+	}
+
+	.add-symbol-btn:hover {
+		color: var(--text-primary, #e2e8f0);
+		border-color: var(--text-secondary, #94a3b8);
+		background: var(--bg-hover, #263245);
 	}
 </style>
