@@ -9,6 +9,7 @@
 			onToggleCollapse?: (id: string) => void;
 			onAddField?: (id: string) => void;
 			onRenameField?: (schemaId: string, oldName: string, newName: string) => void;
+			onChangeDefault?: (schemaId: string, fieldName: string, newDefault: unknown) => void;
 			editingFieldName?: string | null;
 		};
 		id: string;
@@ -20,9 +21,15 @@
 	let isCollapsed = $derived(data.isCollapsed);
 	let fields = $derived(schema.fields ?? []);
 
+	// Field name editing state
 	let editingField = $state<string | null>(null);
 	let editValue = $state('');
 	let cancelling = false;
+
+	// Default value editing state
+	let editingDefault = $state<string | null>(null);
+	let editDefaultValue = $state('');
+	let cancellingDefault = false;
 
 	$effect(() => {
 		if (data.editingFieldName) {
@@ -48,8 +55,54 @@
 	function cancelEdit() {
 		cancelling = true;
 		editingField = null;
-		// Reset flag after the blur event has fired
 		requestAnimationFrame(() => { cancelling = false; });
+	}
+
+	function formatDefaultDisplay(value: unknown): string {
+		if (value === null) return 'null';
+		if (value === true) return 'true';
+		if (value === false) return 'false';
+		if (typeof value === 'number') return String(value);
+		if (typeof value === 'string') return `"${value}"`;
+		if (typeof value === 'object') return JSON.stringify(value);
+		return String(value);
+	}
+
+	function parseDefaultInput(raw: string): unknown {
+		const trimmed = raw.trim();
+		if (trimmed === '') return undefined; // remove default
+		if (trimmed === 'null') return null;
+		if (trimmed === 'true') return true;
+		if (trimmed === 'false') return false;
+		if (/^-?[0-9]+(\.[0-9]+)?$/.test(trimmed)) return Number(trimmed);
+		// Try JSON parse for objects/arrays
+		if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+			(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+			try { return JSON.parse(trimmed); } catch { return trimmed; }
+		}
+		// Strip surrounding quotes if present
+		if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+			return trimmed.slice(1, -1);
+		}
+		return trimmed;
+	}
+
+	function startDefaultEdit(fieldName: string, currentDefault: unknown) {
+		editingDefault = fieldName;
+		editDefaultValue = currentDefault !== undefined ? formatDefaultDisplay(currentDefault) : '';
+	}
+
+	function commitDefaultEdit(fieldName: string) {
+		if (cancellingDefault) return;
+		const parsed = parseDefaultInput(editDefaultValue);
+		data.onChangeDefault?.(id, fieldName, parsed);
+		editingDefault = null;
+	}
+
+	function cancelDefaultEdit() {
+		cancellingDefault = true;
+		editingDefault = null;
+		requestAnimationFrame(() => { cancellingDefault = false; });
 	}
 </script>
 
@@ -99,6 +152,37 @@
 							onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startEdit(field.name); } }}
 						>{field.name}</span>
 					{/if}
+					{#if editingDefault === field.name}
+						<!-- svelte-ignore a11y_autofocus -->
+						<input
+							class="field-default-input nopan nowheel nodrag"
+							type="text"
+							bind:value={editDefaultValue}
+							autofocus
+							onkeydown={(e) => {
+								if (e.key === 'Enter') { e.preventDefault(); commitDefaultEdit(field.name); }
+								else if (e.key === 'Escape') { e.preventDefault(); cancelDefaultEdit(); }
+							}}
+							onblur={() => commitDefaultEdit(field.name)}
+							onfocus={(e) => (e.target as HTMLInputElement).select()}
+						/>
+					{:else if field.default !== undefined}
+						<span
+							class="field-default editable"
+							role="button"
+							tabindex="0"
+							onclick={(e) => { e.stopPropagation(); startDefaultEdit(field.name, field.default); }}
+							onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startDefaultEdit(field.name, field.default); } }}
+						>= {formatDefaultDisplay(field.default)}</span>
+					{:else}
+						<span
+							class="field-default-empty"
+							role="button"
+							tabindex="0"
+							onclick={(e) => { e.stopPropagation(); startDefaultEdit(field.name, undefined); }}
+							onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startDefaultEdit(field.name, undefined); } }}
+						>+</span>
+					{/if}
 					<span class="field-type">{field.type.display}</span>
 					<Handle type="source" position={Position.Right} id="{id}.{field.name}-source" />
 				</div>
@@ -113,7 +197,7 @@
 		background: var(--bg-surface, #1e293b);
 		border: 1px solid var(--border, #334155);
 		border-radius: 6px;
-		min-width: 240px;
+		min-width: 280px;
 		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 		font-size: 12px;
 		box-shadow: 0 2px 8px var(--shadow, rgba(0, 0, 0, 0.3));
@@ -219,6 +303,59 @@
 		margin: 0 -3px;
 		outline: none;
 		min-width: 0;
+	}
+
+	.field-default {
+		color: var(--text-muted, #64748b);
+		font-size: 11px;
+		flex-shrink: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 80px;
+	}
+
+	.field-default.editable {
+		cursor: text;
+		border-radius: 2px;
+		padding: 0 2px;
+	}
+
+	.field-default.editable:hover {
+		background: var(--bg-elevated, #334155);
+	}
+
+	.field-default-empty {
+		color: var(--text-muted, #64748b);
+		font-size: 11px;
+		flex-shrink: 0;
+		opacity: 0;
+		cursor: pointer;
+		padding: 0 2px;
+		border-radius: 2px;
+	}
+
+	.field-row:hover .field-default-empty {
+		opacity: 0.5;
+	}
+
+	.field-default-empty:hover {
+		opacity: 1 !important;
+		background: var(--bg-elevated, #334155);
+	}
+
+	.field-default-input {
+		font-family: inherit;
+		font-size: 11px;
+		color: var(--text-primary, #e2e8f0);
+		background: var(--bg-elevated, #334155);
+		border: 1px solid #3b82f6;
+		border-radius: 2px;
+		padding: 0 2px;
+		outline: none;
+		min-width: 0;
+		width: 60px;
+		flex-shrink: 0;
 	}
 
 	.field-type {

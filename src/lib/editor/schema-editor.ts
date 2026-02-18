@@ -199,6 +199,104 @@ function addFieldToIdl(
 	return code.substring(0, pos) + newField + code.substring(pos);
 }
 
+export function updateFieldDefaultInSchema(
+	code: string,
+	format: SchemaFormat,
+	schemaName: string,
+	fieldName: string,
+	newDefault: unknown
+): string {
+	if (format === 'avro-json') {
+		return updateFieldDefault(code, schemaName, fieldName, newDefault);
+	}
+	if (format === 'avro-idl') {
+		return updateFieldDefaultInIdl(code, schemaName, fieldName, newDefault);
+	}
+	return code;
+}
+
+function updateFieldDefault(
+	jsonInput: string,
+	schemaName: string,
+	fieldName: string,
+	newDefault: unknown
+): string {
+	try {
+		const parsed = JSON.parse(jsonInput);
+		const schemas = Array.isArray(parsed) ? parsed : [parsed];
+
+		const target = findSchemaByName(schemas, schemaName);
+		if (target && Array.isArray(target.fields)) {
+			const field = target.fields.find(
+				(f: Record<string, unknown>) => f.name === fieldName
+			);
+			if (field) {
+				if (newDefault === undefined) {
+					delete field.default;
+				} else {
+					field.default = newDefault;
+				}
+			}
+		}
+
+		return JSON.stringify(Array.isArray(parsed) ? schemas : schemas[0], null, 2);
+	} catch {
+		return jsonInput;
+	}
+}
+
+function updateFieldDefaultInIdl(
+	code: string,
+	schemaName: string,
+	fieldName: string,
+	newDefault: unknown
+): string {
+	const simpleName = schemaName.includes('.') ? schemaName.split('.').pop()! : schemaName;
+	const recordPattern = new RegExp(`\\b(?:record|error)\\s+${escapeRegex(simpleName)}\\s*\\{`);
+	const match = recordPattern.exec(code);
+	if (!match) return code;
+
+	// Find the matching closing brace using brace counting
+	let braceDepth = 1;
+	let pos = match.index + match[0].length;
+	while (pos < code.length && braceDepth > 0) {
+		if (code[pos] === '{') braceDepth++;
+		else if (code[pos] === '}') braceDepth--;
+		if (braceDepth > 0) pos++;
+	}
+
+	const bodyStart = match.index + match[0].length;
+	const bodyEnd = pos;
+	const body = code.substring(bodyStart, bodyEnd);
+
+	// Match field line: captures everything up to fieldName, optional existing default, and semicolon
+	const fieldEsc = escapeRegex(fieldName);
+	const fieldPattern = new RegExp(
+		`(\\b${fieldEsc})(\\s*=\\s*[^;]*)?(\\s*;)`, 'g'
+	);
+	const newBody = body.replace(fieldPattern, (_m, name, _existingDefault, semi) => {
+		if (newDefault === undefined) {
+			// Remove default
+			return `${name}${semi}`;
+		}
+		return `${name} = ${formatIdlDefault(newDefault)}${semi}`;
+	});
+
+	return code.substring(0, bodyStart) + newBody + code.substring(bodyEnd);
+}
+
+function formatIdlDefault(value: unknown): string {
+	if (value === null) return 'null';
+	if (value === true) return 'true';
+	if (value === false) return 'false';
+	if (typeof value === 'number') return String(value);
+	if (typeof value === 'object') {
+		if (Array.isArray(value)) return '[]';
+		return '{}';
+	}
+	return `"${String(value)}"`;
+}
+
 function escapeRegex(str: string): string {
 	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

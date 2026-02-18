@@ -6,7 +6,7 @@ const elk = new ELK();
 
 const FIELD_HEIGHT = 28;
 const HEADER_HEIGHT = 34;
-const NODE_WIDTH = 280;
+const NODE_WIDTH = 320;
 const SYMBOL_HEIGHT = 21;
 const ADD_BUTTON_HEIGHT = 28;
 const RECORD_PADDING = 8;

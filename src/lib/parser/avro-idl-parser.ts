@@ -117,6 +117,18 @@ function tokenize(input: string): Token[] {
 	return tokens;
 }
 
+function parseIdlDefault(raw: string): unknown {
+	const trimmed = raw.trim();
+	if (trimmed === 'null') return null;
+	if (trimmed === 'true') return true;
+	if (trimmed === 'false') return false;
+	if (trimmed === '{}') return {};
+	if (trimmed === '[]') return [];
+	if (/^-?[0-9]+(\.[0-9]+)?$/.test(trimmed)) return Number(trimmed);
+	// Bare string (tokenizer already strips quotes)
+	return trimmed;
+}
+
 class IdlParser {
 	private pos = 0;
 	private currentNamespace: string | undefined;
@@ -271,13 +283,17 @@ class IdlParser {
 		const nameToken = this.advance();
 		if (!nameToken) return undefined;
 
-		// Skip default value
+		// Capture default value
+		let fieldDefault: unknown = undefined;
+		let hasDefault = false;
 		if (this.peek()?.value === '=') {
 			this.advance(); // =
-			// Skip until ;
+			const defaultTokens: string[] = [];
 			while (this.pos < this.tokens.length && this.peek()?.value !== ';') {
-				this.advance();
+				defaultTokens.push(this.advance()!.value);
 			}
+			fieldDefault = parseIdlDefault(defaultTokens.join(' '));
+			hasDefault = true;
 		}
 
 		this.consumeIf(';');
@@ -299,10 +315,14 @@ class IdlParser {
 			}
 		}
 
-		return {
+		const result: SchemaField = {
 			name: nameToken.value,
 			type: fieldType
 		};
+		if (hasDefault) {
+			result.default = fieldDefault;
+		}
+		return result;
 	}
 
 	private parseType(parentId: string): FieldType | undefined {
