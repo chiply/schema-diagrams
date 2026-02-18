@@ -98,6 +98,52 @@ export function renameField(
 	}
 }
 
+export function renameFieldInSchema(
+	code: string,
+	format: SchemaFormat,
+	schemaName: string,
+	oldName: string,
+	newName: string
+): string {
+	if (format === 'avro-json') {
+		return renameField(code, schemaName, oldName, newName);
+	}
+	if (format === 'avro-idl') {
+		return renameFieldInIdl(code, schemaName, oldName, newName);
+	}
+	return code;
+}
+
+function renameFieldInIdl(
+	code: string,
+	schemaName: string,
+	oldName: string,
+	newName: string
+): string {
+	const simpleName = schemaName.includes('.') ? schemaName.split('.').pop()! : schemaName;
+	const recordPattern = new RegExp(`\\b(?:record|error)\\s+${escapeRegex(simpleName)}\\s*\\{`);
+	const match = recordPattern.exec(code);
+	if (!match) return code;
+
+	// Find the matching closing brace using brace counting
+	let braceDepth = 1;
+	let pos = match.index + match[0].length;
+	while (pos < code.length && braceDepth > 0) {
+		if (code[pos] === '{') braceDepth++;
+		else if (code[pos] === '}') braceDepth--;
+		if (braceDepth > 0) pos++;
+	}
+
+	// Replace the field name within the record body only
+	const bodyStart = match.index + match[0].length;
+	const bodyEnd = pos;
+	const body = code.substring(bodyStart, bodyEnd);
+	const fieldPattern = new RegExp(`\\b${escapeRegex(oldName)}(\\s*[;=])`, 'g');
+	const newBody = body.replace(fieldPattern, `${newName}$1`);
+
+	return code.substring(0, bodyStart) + newBody + code.substring(bodyEnd);
+}
+
 export function generateUniqueFieldName(existingNames: string[]): string {
 	const base = 'new_field';
 	if (!existingNames.includes(base)) return base;

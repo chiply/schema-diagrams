@@ -18,7 +18,7 @@
 	import UnionNode from '$lib/components/UnionNode.svelte';
 	import RelationshipEdge from '$lib/components/RelationshipEdge.svelte';
 	import FitViewHelper from '$lib/components/FitViewHelper.svelte';
-	import { parseSchema, addField, generateUniqueFieldName } from '$lib/editor/schema-editor.ts';
+	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema } from '$lib/editor/schema-editor.ts';
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
 	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
@@ -45,6 +45,7 @@
 	let SchemaEditorComponent = $state<any>(null);
 	let fitViewTrigger = $state(0);
 	let helpOpen = $state(false);
+	let editingField = $state<{ schemaId: string; fieldName: string } | null>(null);
 
 	onMount(async () => {
 		const mod = await import('$lib/components/SchemaEditor.svelte');
@@ -84,9 +85,12 @@
 				data: {
 					...n.data,
 					onToggleCollapse: handleToggleCollapse,
-					onAddField: handleAddField
+					onAddField: handleAddField,
+					onRenameField: handleRenameField,
+					editingFieldName: editingField?.schemaId === n.id ? editingField.fieldName : null
 				}
 			}));
+			editingField = null;
 			edges = result.edges;
 			statusMessage = `${graph.schemas.length} schemas, ${graph.relationships.length} relationships`;
 		} catch (e) {
@@ -117,6 +121,13 @@
 			?.data?.schema?.fields?.map((f: any) => f.name) ?? [];
 		const fieldName = generateUniqueFieldName(existingFields);
 		const newCode = addField(code, format, schemaId, fieldName, 'string');
+		editingField = { schemaId, fieldName };
+		applyDiagramEdit(newCode);
+	}
+
+	function handleRenameField(schemaId: string, oldName: string, newName: string) {
+		if (!newName || newName === oldName) return;
+		const newCode = renameFieldInSchema(code, format, schemaId, oldName, newName);
 		applyDiagramEdit(newCode);
 	}
 
@@ -205,6 +216,7 @@
 						<h3>Diagram</h3>
 						<ul>
 							<li>Click "+" on a record node to add a new field</li>
+							<li>Click a field name to rename it inline</li>
 							<li>Click a node header to collapse or expand it</li>
 							<li>Drag nodes to reposition them</li>
 							<li>Scroll to zoom in and out</li>

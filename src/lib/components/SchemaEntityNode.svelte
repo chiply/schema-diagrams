@@ -8,6 +8,8 @@
 			isCollapsed: boolean;
 			onToggleCollapse?: (id: string) => void;
 			onAddField?: (id: string) => void;
+			onRenameField?: (schemaId: string, oldName: string, newName: string) => void;
+			editingFieldName?: string | null;
 		};
 		id: string;
 	}
@@ -17,6 +19,38 @@
 	let schema = $derived(data.schema);
 	let isCollapsed = $derived(data.isCollapsed);
 	let fields = $derived(schema.fields ?? []);
+
+	let editingField = $state<string | null>(null);
+	let editValue = $state('');
+	let cancelling = false;
+
+	$effect(() => {
+		if (data.editingFieldName) {
+			editingField = data.editingFieldName;
+			editValue = data.editingFieldName;
+		}
+	});
+
+	function startEdit(fieldName: string) {
+		editingField = fieldName;
+		editValue = fieldName;
+	}
+
+	function commitEdit(oldName: string) {
+		if (cancelling) return;
+		const trimmed = editValue.trim();
+		if (trimmed && trimmed !== oldName) {
+			data.onRenameField?.(id, oldName, trimmed);
+		}
+		editingField = null;
+	}
+
+	function cancelEdit() {
+		cancelling = true;
+		editingField = null;
+		// Reset flag after the blur event has fired
+		requestAnimationFrame(() => { cancelling = false; });
+	}
 </script>
 
 <div class="entity-node">
@@ -42,7 +76,29 @@
 			{#each fields as field, i}
 				<div class="field-row" class:reference={field.type.isReference} class:nullable={field.type.isNullable}>
 					<Handle type="target" position={Position.Left} id="{id}.{field.name}-target" />
-					<span class="field-name">{field.name}</span>
+					{#if editingField === field.name}
+						<!-- svelte-ignore a11y_autofocus -->
+						<input
+							class="field-name-input nopan nowheel nodrag"
+							type="text"
+							bind:value={editValue}
+							autofocus
+							onkeydown={(e) => {
+								if (e.key === 'Enter') { e.preventDefault(); commitEdit(field.name); }
+								else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+							}}
+							onblur={() => commitEdit(field.name)}
+							onfocus={(e) => (e.target as HTMLInputElement).select()}
+						/>
+					{:else}
+						<span
+							class="field-name editable"
+							role="button"
+							tabindex="0"
+							onclick={(e) => { e.stopPropagation(); startEdit(field.name); }}
+							onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startEdit(field.name); } }}
+						>{field.name}</span>
+					{/if}
 					<span class="field-type">{field.type.display}</span>
 					<Handle type="source" position={Position.Right} id="{id}.{field.name}-source" />
 				</div>
@@ -138,6 +194,31 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.field-name.editable {
+		cursor: text;
+		border-radius: 2px;
+		padding: 0 2px;
+		margin: 0 -2px;
+	}
+
+	.field-name.editable:hover {
+		background: var(--bg-elevated, #334155);
+	}
+
+	.field-name-input {
+		flex: 1;
+		font-family: inherit;
+		font-size: inherit;
+		color: var(--text-primary, #e2e8f0);
+		background: var(--bg-elevated, #334155);
+		border: 1px solid #3b82f6;
+		border-radius: 2px;
+		padding: 0 2px;
+		margin: 0 -3px;
+		outline: none;
+		min-width: 0;
 	}
 
 	.field-type {
