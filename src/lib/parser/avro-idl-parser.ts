@@ -1,4 +1,5 @@
-import type { SchemaGraph, SchemaEntity, SchemaField, FieldType, Relationship } from './types.ts';
+import type { SchemaGraph, SchemaEntity, SchemaField, FieldType, Relationship, SchemaError } from './types.ts';
+import { posToLineCol } from './parser-utils.ts';
 
 /**
  * Lightweight Avro IDL (.avdl) parser.
@@ -14,15 +15,18 @@ interface Token {
 export function parseAvroIdl(input: string): SchemaGraph {
 	const schemas: SchemaEntity[] = [];
 	const relationships: Relationship[] = [];
-	const errors: string[] = [];
+	const errors: SchemaError[] = [];
 	const namedTypes = new Map<string, SchemaEntity>();
 
 	try {
 		const tokens = tokenize(input);
-		const parser = new IdlParser(tokens, schemas, relationships, namedTypes, errors);
+		const parser = new IdlParser(tokens, input, schemas, relationships, namedTypes, errors);
 		parser.parse();
 	} catch (e) {
-		errors.push(`IDL parse error: ${e instanceof Error ? e.message : String(e)}`);
+		errors.push({
+			message: `IDL parse error: ${e instanceof Error ? e.message : String(e)}`,
+			severity: 'error'
+		});
 	}
 
 	return { schemas, relationships, errors };
@@ -135,10 +139,11 @@ class IdlParser {
 
 	constructor(
 		private tokens: Token[],
+		private source: string,
 		private schemas: SchemaEntity[],
 		private relationships: Relationship[],
 		private namedTypes: Map<string, SchemaEntity>,
-		private errors: string[]
+		private errors: SchemaError[]
 	) {}
 
 	parse(): void {
@@ -534,7 +539,29 @@ class IdlParser {
 	private expect(value: string): void {
 		const token = this.advance();
 		if (!token || token.value !== value) {
-			this.errors.push(`Expected '${value}' but got '${token?.value || 'EOF'}' at position ${token?.pos || 'end'}`);
+			const message = `Expected '${value}' but got '${token?.value || 'EOF'}'`;
+			if (token) {
+				const start = posToLineCol(this.source, token.pos);
+				const endCol = start.col + token.value.length;
+				this.errors.push({
+					message,
+					severity: 'error',
+					startLineNumber: start.line,
+					startColumn: start.col,
+					endLineNumber: start.line,
+					endColumn: endCol
+				});
+			} else {
+				const totalLines = this.source.split('\n').length;
+				this.errors.push({
+					message,
+					severity: 'error',
+					startLineNumber: totalLines,
+					startColumn: 1,
+					endLineNumber: totalLines,
+					endColumn: (this.source.split('\n').pop()?.length ?? 0) + 1
+				});
+			}
 		}
 	}
 

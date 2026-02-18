@@ -22,6 +22,7 @@
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
 	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
+	import type { SchemaError } from '$lib/parser/types.ts';
 	import { getTheme, toggleTheme } from '$lib/theme.svelte.ts';
 
 	const nodeTypes: NodeTypes = {
@@ -39,6 +40,7 @@
 	let edges = $state.raw<Edge[]>([]);
 	let format = $state<SchemaFormat>('avro-json');
 	let statusMessage = $state('');
+	let validationErrors = $state<SchemaError[]>([]);
 	let collapsedNodes = $state(new Set<string>());
 	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 	let editorLoaded = $state(false);
@@ -65,14 +67,18 @@
 	async function updateDiagram() {
 		const { graph, format: detectedFormat } = parseSchema(code);
 		format = detectedFormat;
+		validationErrors = graph.errors;
 
 		if (graph.errors.length > 0) {
-			statusMessage = graph.errors[0];
+			statusMessage = graph.errors[0].message;
 			return;
 		}
 
 		if (graph.schemas.length === 0) {
 			statusMessage = 'No schemas found';
+			if (validationErrors.length === 0) {
+				validationErrors = [{ message: 'No schemas found', severity: 'warning' }];
+			}
 			nodes = [];
 			edges = [];
 			return;
@@ -245,7 +251,7 @@
 	<div class="split-container">
 		<div class="editor-pane" style="width: {splitPercent}%">
 			{#if editorLoaded && SchemaEditorComponent}
-				<SchemaEditorComponent value={code} {format} onchange={handleCodeChange} />
+				<SchemaEditorComponent value={code} {format} errors={validationErrors} onchange={handleCodeChange} />
 			{:else}
 				<div class="editor-loading">Loading editor...</div>
 			{/if}
@@ -288,7 +294,7 @@
 		</div>
 	</div>
 
-	<footer class="status-bar">
+	<footer class="status-bar" class:has-error={validationErrors.length > 0}>
 		{statusMessage}
 	</footer>
 </div>
@@ -460,6 +466,10 @@
 		font-size: 11px;
 		color: var(--text-secondary);
 		flex-shrink: 0;
+	}
+
+	.status-bar.has-error {
+		color: #ef4444;
 	}
 
 	.help-dropdown {

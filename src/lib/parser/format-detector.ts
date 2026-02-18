@@ -17,7 +17,11 @@ export function detectFormat(input: string): SchemaFormat {
 			);
 			if (hasAvroType) return 'avro-json';
 		} catch {
-			// Not valid JSON, fall through to IDL detection
+			// JSON parse failed, but if it looks like JSON with Avro keywords,
+			// still treat as avro-json so the parser can report positioned errors
+			if (/"type"\s*:\s*"(record|enum|fixed)"/.test(trimmed)) {
+				return 'avro-json';
+			}
 		}
 	}
 

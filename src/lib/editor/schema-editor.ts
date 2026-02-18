@@ -21,7 +21,7 @@ export function parseSchema(input: string): ParseResult {
 	}
 
 	return {
-		graph: { schemas: [], relationships: [], errors: ['Could not detect schema format. Expected Avro JSON or Avro IDL.'] },
+		graph: { schemas: [], relationships: [], errors: [{ message: 'Could not detect schema format. Expected Avro JSON or Avro IDL.', severity: 'error' }] },
 		format: 'unknown'
 	};
 }

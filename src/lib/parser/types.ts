@@ -1,7 +1,16 @@
+export interface SchemaError {
+	message: string;
+	severity: 'error' | 'warning';
+	startLineNumber?: number;
+	startColumn?: number;
+	endLineNumber?: number;
+	endColumn?: number;
+}
+
 export interface SchemaGraph {
 	schemas: SchemaEntity[];
 	relationships: Relationship[];
-	errors: string[];
+	errors: SchemaError[];
 }
 
 export interface SchemaEntity {

@@ -1,11 +1,12 @@
-import type { SchemaGraph, SchemaEntity, SchemaField, FieldType, Relationship } from './types.ts';
+import type { SchemaGraph, SchemaEntity, SchemaField, FieldType, Relationship, SchemaError } from './types.ts';
+import { posToLineCol } from './parser-utils.ts';
 
 type AvroSchema = Record<string, unknown>;
 
 export function parseAvroJson(input: string): SchemaGraph {
 	const schemas: SchemaEntity[] = [];
 	const relationships: Relationship[] = [];
-	const errors: string[] = [];
+	const errors: SchemaError[] = [];
 	const namedTypes = new Map<string, SchemaEntity>();
 
 	try {
@@ -16,7 +17,15 @@ export function parseAvroJson(input: string): SchemaGraph {
 			processSchema(schema, undefined, schemas, relationships, namedTypes, errors);
 		}
 	} catch (e) {
-		errors.push(`JSON parse error: ${e instanceof Error ? e.message : String(e)}`);
+		const msg = e instanceof Error ? e.message : String(e);
+		const error: SchemaError = { message: `JSON parse error: ${msg}`, severity: 'error' };
+		const posMatch = msg.match(/at position (\d+)/);
+		if (posMatch) {
+			const { line, col } = posToLineCol(input, parseInt(posMatch[1], 10));
+			error.startLineNumber = line;
+			error.startColumn = col;
+		}
+		errors.push(error);
 	}
 
 	return { schemas, relationships, errors };
@@ -28,15 +37,23 @@ function processSchema(
 	schemas: SchemaEntity[],
 	relationships: Relationship[],
 	namedTypes: Map<string, SchemaEntity>,
-	errors: string[]
+	errors: SchemaError[]
 ): string | undefined {
 	if (typeof schema !== 'object' || schema === null) return undefined;
 
 	const type = schema.type as string;
-	if (!type) return undefined;
+	if (!type) {
+		if (schema.name || schema.fields) {
+			errors.push({ message: `Schema is missing required "type" field`, severity: 'error' });
+		}
+		return undefined;
+	}
 
 	const name = schema.name as string;
-	if (!name) return undefined;
+	if (!name) {
+		errors.push({ message: `Schema of type "${type}" is missing required "name" field`, severity: 'error' });
+		return undefined;
+	}
 
 	const namespace = (schema.namespace as string) || extractNamespace(parentId);
 	const id = namespace ? `${namespace}.${name}` : name;
@@ -112,7 +129,7 @@ function processField(
 	schemas: SchemaEntity[],
 	relationships: Relationship[],
 	namedTypes: Map<string, SchemaEntity>,
-	errors: string[]
+	errors: SchemaError[]
 ): SchemaField | undefined {
 	const name = field.name as string;
 	if (!name) return undefined;
@@ -164,7 +181,7 @@ function resolveType(
 	schemas: SchemaEntity[],
 	relationships: Relationship[],
 	namedTypes: Map<string, SchemaEntity>,
-	errors: string[]
+	errors: SchemaError[]
 ): FieldType {
 	// String type reference
 	if (typeof type === 'string') {
@@ -303,7 +320,7 @@ function resolveUnionType(
 	schemas: SchemaEntity[],
 	relationships: Relationship[],
 	namedTypes: Map<string, SchemaEntity>,
-	errors: string[]
+	errors: SchemaError[]
 ): FieldType {
 	const resolved = types.map((t) =>
 		resolveType(t, fieldName, parentId, schemas, relationships, namedTypes, errors)

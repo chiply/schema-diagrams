@@ -2,11 +2,13 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type * as Monaco from 'monaco-editor';
 	import type { SchemaFormat } from '../parser/format-detector.ts';
+	import type { SchemaError } from '../parser/types.ts';
 	import { getTheme } from '$lib/theme.svelte.ts';
 
 	interface Props {
 		value: string;
 		format: SchemaFormat;
+		errors?: SchemaError[];
 		onchange?: (value: string) => void;
 	}
 
@@ -17,6 +19,7 @@
 	let monacoRef = $state<typeof Monaco | null>(null);
 	let isUpdatingFromProp = false;
 	let theme = $derived(getTheme());
+	let idlRegistered = false;
 
 	onMount(async () => {
 		const monaco = await import('monaco-editor');
@@ -32,6 +35,41 @@
 			}
 		};
 
+		// Register avro-idl language with Monarch tokenizer
+		if (!idlRegistered) {
+			monaco.languages.register({ id: 'avro-idl' });
+			monaco.languages.setMonarchTokensProvider('avro-idl', {
+				keywords: [
+					'protocol', 'record', 'enum', 'fixed', 'union', 'array', 'map',
+					'null', 'boolean', 'int', 'long', 'float', 'double', 'bytes', 'string',
+					'void', 'import', 'idl', 'schema', 'throws', 'oneway', 'error',
+					'date', 'time_ms', 'timestamp_ms', 'decimal', 'uuid', 'true', 'false'
+				],
+				tokenizer: {
+					root: [
+						[/\/\/.*$/, 'comment'],
+						[/\/\*/, 'comment', '@comment'],
+						[/@[a-zA-Z0-9_.-]+/, 'annotation'],
+						[/"[^"\\]*(?:\\.[^"\\]*)*"/, 'string'],
+						[/`[^`]*`/, 'string'],
+						[/[0-9]+(\.[0-9]+)?/, 'number'],
+						[/[a-zA-Z_]\w*/, {
+							cases: {
+								'@keywords': 'keyword',
+								'@default': 'identifier'
+							}
+						}],
+						[/[{}()\[\];,=<>?]/, 'delimiter']
+					],
+					comment: [
+						[/\*\//, 'comment', '@pop'],
+						[/./, 'comment']
+					]
+				}
+			});
+			idlRegistered = true;
+		}
+
 		monaco.editor.defineTheme('schema-dark', {
 			base: 'vs-dark',
 			inherit: true,
@@ -42,7 +80,10 @@
 				{ token: 'string', foreground: 'CE9178' },
 				{ token: 'number', foreground: 'B5CEA8' },
 				{ token: 'keyword', foreground: '569CD6' },
-				{ token: 'comment', foreground: '6A9955' }
+				{ token: 'comment', foreground: '6A9955' },
+				{ token: 'annotation', foreground: 'DCDCAA' },
+				{ token: 'delimiter', foreground: 'D4D4D4' },
+				{ token: 'identifier', foreground: '9CDCFE' }
 			],
 			colors: {
 				'editor.background': '#1a202c',
@@ -65,7 +106,10 @@
 				{ token: 'string', foreground: 'A31515' },
 				{ token: 'number', foreground: '098658' },
 				{ token: 'keyword', foreground: '0000FF' },
-				{ token: 'comment', foreground: '008000' }
+				{ token: 'comment', foreground: '008000' },
+				{ token: 'annotation', foreground: '795E26' },
+				{ token: 'delimiter', foreground: '000000' },
+				{ token: 'identifier', foreground: '001080' }
 			],
 			colors: {
 				'editor.background': '#ffffff',
@@ -80,7 +124,7 @@
 
 		monacoRef = monaco;
 
-		const language = props.format === 'avro-idl' ? 'plaintext' : 'json';
+		const language = props.format === 'avro-idl' ? 'avro-idl' : 'json';
 		const initialTheme = getTheme() === 'dark' ? 'schema-dark' : 'schema-light';
 
 		editor = monaco.editor.create(container, {
@@ -131,14 +175,48 @@
 		}
 	});
 
+	// Switch language when format changes
 	$effect(() => {
-		if (editor) {
+		if (editor && monacoRef) {
 			const model = editor.getModel();
 			if (model) {
-				const monaco = (globalThis as any).monaco;
-				// We can't dynamically switch language without monaco reference,
-				// but the format detection handles this at load time
+				const lang = props.format === 'avro-idl' ? 'avro-idl' : 'json';
+				if (model.getLanguageId() !== lang) {
+					monacoRef.editor.setModelLanguage(model, lang);
+				}
 			}
+		}
+	});
+
+	// Set error markers
+	$effect(() => {
+		if (editor && monacoRef) {
+			const model = editor.getModel();
+			if (!model) return;
+			const errors = props.errors ?? [];
+
+			const lineCount = model.getLineCount();
+			const markers: Monaco.editor.IMarkerData[] = errors.map((e) => {
+				const hasPosition = e.startLineNumber != null;
+				const startLine = e.startLineNumber ?? 1;
+				const startCol = e.startColumn ?? 1;
+				// For unpositioned errors, span the first few lines so the squiggly is visible
+				const endLine = e.endLineNumber ?? (hasPosition ? startLine : Math.min(startLine + 2, lineCount));
+				const endCol = e.endColumn ?? (model.getLineLength(Math.min(endLine, lineCount)) + 1);
+
+				return {
+					severity: e.severity === 'warning'
+						? monacoRef!.MarkerSeverity.Warning
+						: monacoRef!.MarkerSeverity.Error,
+					message: e.message,
+					startLineNumber: startLine,
+					startColumn: startCol,
+					endLineNumber: endLine,
+					endColumn: endCol
+				};
+			});
+
+			monacoRef.editor.setModelMarkers(model, 'avro', markers);
 		}
 	});
 
