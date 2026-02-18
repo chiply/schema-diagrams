@@ -7,6 +7,7 @@
 			schema: SchemaEntity;
 			isCollapsed: boolean;
 			onToggleCollapse?: (id: string) => void;
+			onAddField?: (id: string) => void;
 		};
 		id: string;
 	}
@@ -47,6 +48,7 @@
 				</div>
 			{/each}
 		</div>
+		<button class="add-field-btn" onclick={() => data.onAddField?.(id)}>+ Add Field</button>
 	{/if}
 </div>
 
@@ -147,5 +149,26 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.add-field-btn {
+		display: block;
+		width: calc(100% - 16px);
+		margin: 2px 8px 6px;
+		padding: 4px 0;
+		background: none;
+		border: 1px dashed var(--border-accent, #475569);
+		border-radius: 4px;
+		color: var(--text-muted, #64748b);
+		font-family: inherit;
+		font-size: 11px;
+		cursor: pointer;
+		transition: color 0.15s, border-color 0.15s, background 0.15s;
+	}
+
+	.add-field-btn:hover {
+		color: var(--text-primary, #e2e8f0);
+		border-color: var(--text-secondary, #94a3b8);
+		background: var(--bg-hover, #263245);
 	}
 </style>

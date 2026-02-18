@@ -18,7 +18,7 @@
 	import UnionNode from '$lib/components/UnionNode.svelte';
 	import RelationshipEdge from '$lib/components/RelationshipEdge.svelte';
 	import FitViewHelper from '$lib/components/FitViewHelper.svelte';
-	import { parseSchema } from '$lib/editor/schema-editor.ts';
+	import { parseSchema, addField, generateUniqueFieldName } from '$lib/editor/schema-editor.ts';
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
 	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
@@ -44,6 +44,7 @@
 	let editorLoaded = $state(false);
 	let SchemaEditorComponent = $state<any>(null);
 	let fitViewTrigger = $state(0);
+	let helpOpen = $state(false);
 
 	onMount(async () => {
 		const mod = await import('$lib/components/SchemaEditor.svelte');
@@ -82,7 +83,8 @@
 				...n,
 				data: {
 					...n.data,
-					onToggleCollapse: handleToggleCollapse
+					onToggleCollapse: handleToggleCollapse,
+					onAddField: handleAddField
 				}
 			}));
 			edges = result.edges;
@@ -102,6 +104,20 @@
 		}
 		collapsedNodes = next;
 		updateDiagram();
+	}
+
+	async function applyDiagramEdit(newCode: string) {
+		code = newCode;
+		await updateDiagram();
+	}
+
+	function handleAddField(schemaId: string) {
+		const existingFields = nodes
+			.find(n => n.id === schemaId)
+			?.data?.schema?.fields?.map((f: any) => f.name) ?? [];
+		const fieldName = generateUniqueFieldName(existingFields);
+		const newCode = addField(code, format, schemaId, fieldName, 'string');
+		applyDiagramEdit(newCode);
 	}
 
 	async function expandAll() {
@@ -151,6 +167,11 @@
 	class:theme-light={theme === 'light'}
 	onmousemove={handleSplitMouseMove}
 	onmouseup={handleSplitMouseUp}
+	onclick={(e) => {
+		if (helpOpen && !(e.target as HTMLElement).closest('.help-dropdown')) {
+			helpOpen = false;
+		}
+	}}
 	role="application"
 >
 	<header class="app-header">
@@ -173,6 +194,32 @@
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 				{/if}
 			</button>
+			<div class="help-dropdown">
+				<button class="help-toggle" onclick={() => helpOpen = !helpOpen} aria-label="Help">?</button>
+				{#if helpOpen}
+					<div class="help-panel">
+						<h3>Editor</h3>
+						<ul>
+							<li>Edit Avro JSON or IDL on the left — diagram updates live</li>
+						</ul>
+						<h3>Diagram</h3>
+						<ul>
+							<li>Click "+" on a record node to add a new field</li>
+							<li>Click a node header to collapse or expand it</li>
+							<li>Drag nodes to reposition them</li>
+							<li>Scroll to zoom in and out</li>
+							<li>Drag the background to pan</li>
+							<li>Drag the divider to resize panels</li>
+						</ul>
+						<h3>Toolbar</h3>
+						<ul>
+							<li>Pick an example schema from the dropdown</li>
+							<li>Expand All / Collapse All toggles every node</li>
+							<li>Fit View control (bottom-left of diagram) auto-fits</li>
+						</ul>
+					</div>
+				{/if}
+			</div>
 		</div>
 	</header>
 
@@ -394,5 +441,60 @@
 		font-size: 11px;
 		color: var(--text-secondary);
 		flex-shrink: 0;
+	}
+
+	.help-dropdown {
+		position: relative;
+	}
+
+	.help-dropdown .help-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border-radius: 50%;
+		font-weight: 700;
+		font-size: 13px;
+	}
+
+	.help-panel {
+		position: absolute;
+		top: 100%;
+		right: 0;
+		margin-top: 8px;
+		width: 280px;
+		background: var(--bg-surface);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		box-shadow: 0 4px 16px var(--shadow);
+		padding: 16px;
+		z-index: 100;
+	}
+
+	.help-panel h3 {
+		margin: 0;
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		color: var(--text-muted);
+		padding-bottom: 4px;
+	}
+
+	.help-panel h3:not(:first-child) {
+		margin-top: 12px;
+	}
+
+	.help-panel ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.help-panel li {
+		font-size: 12px;
+		color: var(--text-secondary);
+		line-height: 1.6;
 	}
 </style>

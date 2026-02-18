@@ -8,6 +8,7 @@ const FIELD_HEIGHT = 28;
 const HEADER_HEIGHT = 34;
 const NODE_WIDTH = 280;
 const SYMBOL_HEIGHT = 21;
+const ADD_BUTTON_HEIGHT = 28;
 const RECORD_PADDING = 8;
 const ENUM_PADDING = 12;
 
@@ -111,7 +112,7 @@ function computeNodeHeight(schema: SchemaEntity, isCollapsed: boolean): number {
 	}
 
 	if (schema.type === 'record' && schema.fields) {
-		return HEADER_HEIGHT + schema.fields.length * FIELD_HEIGHT + RECORD_PADDING;
+		return HEADER_HEIGHT + schema.fields.length * FIELD_HEIGHT + ADD_BUTTON_HEIGHT + RECORD_PADDING;
 	}
 
 	if (schema.type === 'enum' && schema.symbols) {

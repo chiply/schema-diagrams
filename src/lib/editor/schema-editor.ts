@@ -2,6 +2,7 @@ import type { SchemaGraph } from '../parser/types.ts';
 import { parseAvroJson } from '../parser/avro-json-parser.ts';
 import { parseAvroIdl } from '../parser/avro-idl-parser.ts';
 import { detectFormat, type SchemaFormat } from '../parser/format-detector.ts';
+export type { SchemaFormat };
 
 export interface ParseResult {
 	graph: SchemaGraph;
@@ -95,6 +96,65 @@ export function renameField(
 	} catch {
 		return jsonInput;
 	}
+}
+
+export function generateUniqueFieldName(existingNames: string[]): string {
+	const base = 'new_field';
+	if (!existingNames.includes(base)) return base;
+	let i = 2;
+	while (existingNames.includes(`${base}_${i}`)) i++;
+	return `${base}_${i}`;
+}
+
+export function addField(
+	code: string,
+	format: SchemaFormat,
+	schemaName: string,
+	fieldName: string,
+	fieldType: string
+): string {
+	if (format === 'avro-json') {
+		return addFieldToSchema(code, schemaName, fieldName, fieldType);
+	}
+	if (format === 'avro-idl') {
+		return addFieldToIdl(code, schemaName, fieldName, fieldType);
+	}
+	return code;
+}
+
+function addFieldToIdl(
+	code: string,
+	schemaName: string,
+	fieldName: string,
+	fieldType: string
+): string {
+	// Try the full qualified name first, then just the simple name
+	const simpleName = schemaName.includes('.') ? schemaName.split('.').pop()! : schemaName;
+	const recordPattern = new RegExp(`\\b(?:record|error)\\s+${escapeRegex(simpleName)}\\s*\\{`);
+	const match = recordPattern.exec(code);
+	if (!match) return code;
+
+	// Find the matching closing brace using brace counting
+	let braceDepth = 1;
+	let pos = match.index + match[0].length;
+	while (pos < code.length && braceDepth > 0) {
+		if (code[pos] === '{') braceDepth++;
+		else if (code[pos] === '}') braceDepth--;
+		if (braceDepth > 0) pos++;
+	}
+
+	// pos now points to the closing }
+	// Determine indentation from the record's fields
+	const beforeClose = code.substring(match.index, pos);
+	const indentMatch = beforeClose.match(/\n(\s+)\S[^\n]*$/);
+	const indent = indentMatch ? indentMatch[1] : '  ';
+
+	const newField = `${indent}${fieldType} ${fieldName};\n`;
+	return code.substring(0, pos) + newField + code.substring(pos);
+}
+
+function escapeRegex(str: string): string {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function findSchemaByName(
