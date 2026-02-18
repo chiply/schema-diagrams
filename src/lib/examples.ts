@@ -336,6 +336,7 @@ export const examples: Example[] = [
 
   record UserEvent {
     string event_id;
+    @join(schema="UserService.User", field="id", cardinality="N:1")
     long user_id;
     string action;
     long timestamp;

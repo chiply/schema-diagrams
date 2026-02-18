@@ -193,17 +193,7 @@ class IdlParser {
 			} else if (token.value === 'fixed') {
 				this.parseFixed(undefined);
 			} else if (token.type === 'annotation') {
-				this.advance(); // skip annotations on protocol members for now
-				// Consume annotation arguments if present
-				if (this.peek()?.value === '(') {
-					this.advance();
-					let depth = 1;
-					while (this.pos < this.tokens.length && depth > 0) {
-						const t = this.advance();
-						if (t?.value === '(') depth++;
-						if (t?.value === ')') depth--;
-					}
-				}
+				this.collectAnnotations(); // skip annotations on protocol members for now
 			} else {
 				// Skip method declarations and other tokens
 				this.advance();
@@ -259,14 +249,15 @@ class IdlParser {
 			} else if (token.value === 'fixed') {
 				this.parseFixed(id);
 			} else if (token.type === 'annotation') {
-				this.advance();
-				if (this.peek()?.value === '(') {
-					this.advance();
-					let depth = 1;
-					while (this.pos < this.tokens.length && depth > 0) {
-						const t = this.advance();
-						if (t?.value === '(') depth++;
-						if (t?.value === ')') depth--;
+				const annotations = this.collectAnnotations();
+				// Parse the field that follows the annotations
+				const nextToken = this.peek();
+				if (nextToken && nextToken.value !== '}' && nextToken.type !== 'annotation'
+					&& nextToken.value !== 'record' && nextToken.value !== 'error'
+					&& nextToken.value !== 'enum' && nextToken.value !== 'fixed') {
+					const field = this.parseField(id, annotations);
+					if (field) {
+						entity.fields!.push(field);
 					}
 				}
 			} else {
@@ -281,7 +272,7 @@ class IdlParser {
 		this.consumeIf('}');
 	}
 
-	private parseField(parentId: string): SchemaField | undefined {
+	private parseField(parentId: string, annotations?: Array<{ name: string; args: Record<string, string> }>): SchemaField | undefined {
 		const fieldType = this.parseType(parentId);
 		if (!fieldType) return undefined;
 
@@ -327,6 +318,29 @@ class IdlParser {
 		if (hasDefault) {
 			result.default = fieldDefault;
 		}
+
+		// Handle @join annotation
+		if (annotations) {
+			const joinAnno = annotations.find((a) => a.name === '@join');
+			if (joinAnno) {
+				const joinSchema = joinAnno.args.schema;
+				const joinField = joinAnno.args.field;
+				const joinCardinality = joinAnno.args.cardinality;
+				if (joinSchema) {
+					this.relationships.push({
+						id: `join-${parentId}.${nameToken.value}-${joinSchema}`,
+						sourceSchema: parentId,
+						sourceField: nameToken.value,
+						targetSchema: joinSchema,
+						targetField: joinField,
+						type: 'join',
+						label: joinField ? `${nameToken.value} → ${joinField}` : undefined,
+						cardinality: (joinCardinality as Relationship['cardinality']) || undefined
+					});
+				}
+			}
+		}
+
 		return result;
 	}
 
@@ -526,6 +540,31 @@ class IdlParser {
 		};
 		this.namedTypes.set(id, entity);
 		this.schemas.push(entity);
+	}
+
+	private collectAnnotations(): Array<{ name: string; args: Record<string, string> }> {
+		const annotations: Array<{ name: string; args: Record<string, string> }> = [];
+		while (this.peek()?.type === 'annotation') {
+			const token = this.advance()!;
+			const name = token.value; // e.g. "@join"
+			const args: Record<string, string> = {};
+			if (this.peek()?.value === '(') {
+				this.advance(); // consume '('
+				while (this.pos < this.tokens.length && this.peek()?.value !== ')') {
+					const key = this.advance();
+					if (!key) break;
+					if (this.peek()?.value === '=') {
+						this.advance(); // consume '='
+						const val = this.advance();
+						if (val) args[key.value] = val.value;
+					}
+					if (this.peek()?.value === ',') this.advance();
+				}
+				this.consumeIf(')');
+			}
+			annotations.push({ name, args });
+		}
+		return annotations;
 	}
 
 	private peek(): Token | undefined {
