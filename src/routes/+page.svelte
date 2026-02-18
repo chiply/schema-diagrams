@@ -18,7 +18,7 @@
 	import UnionNode from '$lib/components/UnionNode.svelte';
 	import RelationshipEdge from '$lib/components/RelationshipEdge.svelte';
 	import FitViewHelper from '$lib/components/FitViewHelper.svelte';
-	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema, updateFieldDefaultInSchema } from '$lib/editor/schema-editor.ts';
+	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema, updateFieldDefaultInSchema, updateFieldTypeInSchema } from '$lib/editor/schema-editor.ts';
 	import { layoutGraph } from '$lib/layout/elk-layout.ts';
 	import { examples } from '$lib/examples.ts';
 	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
@@ -94,6 +94,7 @@
 					onAddField: handleAddField,
 					onRenameField: handleRenameField,
 					onChangeDefault: handleChangeDefault,
+					onChangeType: handleChangeType,
 					editingFieldName: editingField?.schemaId === n.id ? editingField.fieldName : null
 				}
 			}));
@@ -140,6 +141,11 @@
 
 	function handleChangeDefault(schemaId: string, fieldName: string, newDefault: unknown) {
 		const newCode = updateFieldDefaultInSchema(code, format, schemaId, fieldName, newDefault);
+		applyDiagramEdit(newCode);
+	}
+
+	function handleChangeType(schemaId: string, fieldName: string, newType: string) {
+		const newCode = updateFieldTypeInSchema(code, format, schemaId, fieldName, newType);
 		applyDiagramEdit(newCode);
 	}
 
@@ -230,6 +236,7 @@
 							<li>Click "+" on a record node to add a new field</li>
 							<li>Click a field name to rename it inline</li>
 							<li>Click a field's default value to edit it inline</li>
+							<li>Click a field's type to change it via dropdown</li>
 							<li>Click a node header to collapse or expand it</li>
 							<li>Drag nodes to reposition them</li>
 							<li>Scroll to zoom in and out</li>

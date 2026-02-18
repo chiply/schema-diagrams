@@ -297,6 +297,114 @@ function formatIdlDefault(value: unknown): string {
 	return `"${String(value)}"`;
 }
 
+export function updateFieldTypeInSchema(
+	code: string,
+	format: SchemaFormat,
+	schemaName: string,
+	fieldName: string,
+	newType: string
+): string {
+	if (format === 'avro-json') {
+		return updateFieldType(code, schemaName, fieldName, newType);
+	}
+	if (format === 'avro-idl') {
+		return updateFieldTypeInIdl(code, schemaName, fieldName, newType);
+	}
+	return code;
+}
+
+function updateFieldType(
+	jsonInput: string,
+	schemaName: string,
+	fieldName: string,
+	newType: string
+): string {
+	try {
+		const parsed = JSON.parse(jsonInput);
+		const schemas = Array.isArray(parsed) ? parsed : [parsed];
+
+		const target = findSchemaByName(schemas, schemaName);
+		if (target && Array.isArray(target.fields)) {
+			const field = target.fields.find(
+				(f: Record<string, unknown>) => f.name === fieldName
+			);
+			if (field) {
+				if (typeof field.type === 'string') {
+					// Simple type: "string" → "int"
+					field.type = newType;
+				} else if (
+					Array.isArray(field.type) &&
+					field.type.length === 2 &&
+					field.type[0] === 'null'
+				) {
+					// Nullable: ["null", "string"] → ["null", "int"]
+					field.type = ['null', newType];
+				}
+			}
+		}
+
+		return JSON.stringify(Array.isArray(parsed) ? schemas : schemas[0], null, 2);
+	} catch {
+		return jsonInput;
+	}
+}
+
+function updateFieldTypeInIdl(
+	code: string,
+	schemaName: string,
+	fieldName: string,
+	newType: string
+): string {
+	const simpleName = schemaName.includes('.') ? schemaName.split('.').pop()! : schemaName;
+	const recordPattern = new RegExp(`\\b(?:record|error)\\s+${escapeRegex(simpleName)}\\s*\\{`);
+	const match = recordPattern.exec(code);
+	if (!match) return code;
+
+	// Find the matching closing brace using brace counting
+	let braceDepth = 1;
+	let pos = match.index + match[0].length;
+	while (pos < code.length && braceDepth > 0) {
+		if (code[pos] === '{') braceDepth++;
+		else if (code[pos] === '}') braceDepth--;
+		if (braceDepth > 0) pos++;
+	}
+
+	const bodyStart = match.index + match[0].length;
+	const bodyEnd = pos;
+	const body = code.substring(bodyStart, bodyEnd);
+
+	const fieldEsc = escapeRegex(fieldName);
+
+	// Pattern 1: union { null, oldType } fieldName
+	const unionPattern = new RegExp(
+		`(union\\s*\\{\\s*null\\s*,\\s*)\\w+(\\s*\\}\\s+${fieldEsc}\\b)`
+	);
+	if (unionPattern.test(body)) {
+		const newBody = body.replace(unionPattern, `$1${newType}$2`);
+		return code.substring(0, bodyStart) + newBody + code.substring(bodyEnd);
+	}
+
+	// Pattern 2: oldType? fieldName  (nullable shorthand)
+	const nullablePattern = new RegExp(
+		`(^|\\n)(\\s*)\\w+(\\?\\s+${fieldEsc}\\b)`, 'm'
+	);
+	if (nullablePattern.test(body)) {
+		const newBody = body.replace(nullablePattern, `$1$2${newType}$3`);
+		return code.substring(0, bodyStart) + newBody + code.substring(bodyEnd);
+	}
+
+	// Pattern 3: simple type  oldType fieldName
+	const simplePattern = new RegExp(
+		`(^|\\n)(\\s*)\\w+(\\s+${fieldEsc}\\b)`, 'm'
+	);
+	if (simplePattern.test(body)) {
+		const newBody = body.replace(simplePattern, `$1$2${newType}$3`);
+		return code.substring(0, bodyStart) + newBody + code.substring(bodyEnd);
+	}
+
+	return code;
+}
+
 function escapeRegex(str: string): string {
 	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

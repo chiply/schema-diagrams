@@ -10,6 +10,7 @@
 			onAddField?: (id: string) => void;
 			onRenameField?: (schemaId: string, oldName: string, newName: string) => void;
 			onChangeDefault?: (schemaId: string, fieldName: string, newDefault: unknown) => void;
+			onChangeType?: (schemaId: string, fieldName: string, newType: string) => void;
 			editingFieldName?: string | null;
 		};
 		id: string;
@@ -25,6 +26,10 @@
 	let editingField = $state<string | null>(null);
 	let editValue = $state('');
 	let cancelling = false;
+
+	// Type editing state
+	let editingType = $state<string | null>(null);
+	const primitiveTypes = ['boolean', 'int', 'long', 'float', 'double', 'bytes', 'string'];
 
 	// Default value editing state
 	let editingDefault = $state<string | null>(null);
@@ -183,7 +188,34 @@
 							onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); startDefaultEdit(field.name, undefined); } }}
 						>+</span>
 					{/if}
-					<span class="field-type">{field.type.display}</span>
+					{#if editingType === field.name}
+						<!-- svelte-ignore a11y_autofocus -->
+						<select
+							class="field-type-select nopan nowheel nodrag"
+							autofocus
+							value={field.type.display.replace(/\?$/, '')}
+							onchange={(e) => {
+								const val = (e.target as HTMLSelectElement).value;
+								data.onChangeType?.(id, field.name, val);
+								editingType = null;
+							}}
+							onblur={() => { editingType = null; }}
+						>
+							{#each primitiveTypes as pt}
+								<option value={pt}>{pt}</option>
+							{/each}
+						</select>
+					{:else if !field.type.isReference && !field.type.isArray && !field.type.isUnion && primitiveTypes.includes(field.type.display.replace(/\?$/, ''))}
+						<span
+							class="field-type editable"
+							role="button"
+							tabindex="0"
+							onclick={(e) => { e.stopPropagation(); editingType = field.name; }}
+							onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); editingType = field.name; } }}
+						>{field.type.display}</span>
+					{:else}
+						<span class="field-type">{field.type.display}</span>
+					{/if}
 					<Handle type="source" position={Position.Right} id="{id}.{field.name}-source" />
 				</div>
 			{/each}
@@ -367,6 +399,29 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.field-type.editable {
+		cursor: pointer;
+		border-radius: 2px;
+		padding: 0 2px;
+	}
+
+	.field-type.editable:hover {
+		background: var(--bg-elevated, #334155);
+	}
+
+	.field-type-select {
+		font-family: inherit;
+		font-size: 11px;
+		color: var(--text-primary, #e2e8f0);
+		background: var(--bg-elevated, #334155);
+		border: 1px solid #3b82f6;
+		border-radius: 2px;
+		padding: 0 2px;
+		outline: none;
+		flex-shrink: 0;
+		cursor: pointer;
 	}
 
 	.add-field-btn {
