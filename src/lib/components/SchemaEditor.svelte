@@ -3,7 +3,7 @@
 	import type * as Monaco from 'monaco-editor';
 	import type { SchemaFormat } from '../parser/format-detector.ts';
 	import type { SchemaError } from '../parser/types.ts';
-	import { getTheme } from '$lib/theme.svelte.ts';
+	import { getTheme } from '$lib/theme.svelte';
 
 	interface Props {
 		value: string;
