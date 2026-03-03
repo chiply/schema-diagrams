@@ -18,12 +18,12 @@
 	import UnionNode from '$lib/components/UnionNode.svelte';
 	import RelationshipEdge from '$lib/components/RelationshipEdge.svelte';
 	import FitViewHelper from '$lib/components/FitViewHelper.svelte';
-	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema, updateFieldDefaultInSchema, updateFieldTypeInSchema, addSymbol, generateUniqueSymbolName, renameSymbolInSchema } from '$lib/editor/schema-editor.ts';
-	import { layoutGraph } from '$lib/layout/elk-layout.ts';
-	import { examples } from '$lib/examples.ts';
-	import type { SchemaFormat } from '$lib/parser/format-detector.ts';
-	import type { SchemaError } from '$lib/parser/types.ts';
-	import { getTheme, toggleTheme } from '$lib/theme.svelte.ts';
+	import { parseSchema, addField, generateUniqueFieldName, renameFieldInSchema, updateFieldDefaultInSchema, updateFieldTypeInSchema, addSymbol, generateUniqueSymbolName, renameSymbolInSchema } from '$lib/editor/schema-editor';
+	import { layoutGraph } from '$lib/layout/elk-layout';
+	import { examples } from '$lib/examples';
+	import type { SchemaFormat } from '$lib/parser/format-detector';
+	import type { SchemaError } from '$lib/parser/types';
+	import { getTheme, toggleTheme } from '$lib/theme.svelte';
 
 	const nodeTypes: NodeTypes = {
 		schemaEntity: SchemaEntityNode as any,
@@ -129,9 +129,9 @@
 	}
 
 	function handleAddField(schemaId: string) {
-		const existingFields = nodes
+		const existingFields = (nodes
 			.find(n => n.id === schemaId)
-			?.data?.schema?.fields?.map((f: any) => f.name) ?? [];
+			?.data as any)?.schema?.fields?.map((f: any) => f.name) ?? [];
 		const fieldName = generateUniqueFieldName(existingFields);
 		const newCode = addField(code, format, schemaId, fieldName, 'string');
 		editingField = { schemaId, fieldName };
@@ -155,9 +155,9 @@
 	}
 
 	function handleAddSymbol(schemaId: string) {
-		const existingSymbols = nodes
+		const existingSymbols = (nodes
 			.find(n => n.id === schemaId)
-			?.data?.schema?.symbols ?? [];
+			?.data as any)?.schema?.symbols ?? [];
 		const symbolName = generateUniqueSymbolName(existingSymbols);
 		const newCode = addSymbol(code, format, schemaId, symbolName);
 		editingSymbol = { schemaId, symbolName };
